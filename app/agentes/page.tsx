@@ -1,8 +1,4 @@
-"use client";
-
-import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import {
   Phone,
   CalendarCheck,
@@ -10,7 +6,7 @@ import {
   ListChecks,
   ArrowRight,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase-server";
 import { PageHeader } from "@/components/page-header";
 import { KpiCard } from "@/components/kpi-card";
 import { Badge } from "@/components/badge";
@@ -19,86 +15,32 @@ import { CALL_ESTADO, PIPELINE_ESTADO, PIPELINE_ORDER } from "@/lib/labels";
 import { formatDateTime, formatPercent } from "@/lib/format";
 import type { Agente, CallCenterCall, CallEstado } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 const CONTACTADAS: CallEstado[] = ["contestada", "completada"];
 
-function isAgente(v: string | null): v is Agente {
+function isAgente(v: string | undefined): v is Agente {
   return v === "dental" || v === "gestoria" || v === "taller" || v === "estetica";
 }
 
-export default function AgentesPage() {
-  return (
-    <Suspense
-      fallback={
-        <PageHeader
-          title="Agentes"
-          subtitle="Rendimiento por agente: dental, gestoría, taller y estética"
-        />
-      }
-    >
-      <AgentesView />
-    </Suspense>
-  );
-}
+export default async function AgentesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ agente?: string }>;
+}) {
+  const { agente: agenteParam } = await searchParams;
+  const seleccionado = isAgente(agenteParam) ? agenteParam : null;
 
-function AgentesView() {
-  const params = useSearchParams();
-  const seleccionado = isAgente(params.get("agente"))
-    ? (params.get("agente") as Agente)
-    : null;
+  const supabase = createServerClient();
+  const [callsRes, prospRes] = await Promise.all([
+    supabase
+      .from("call_center_calls")
+      .select("*")
+      .order("created_at", { ascending: false }),
+    supabase.from("call_center_prospectos").select("agente, estado"),
+  ]);
 
-  const [calls, setCalls] = useState<CallCenterCall[] | null>(null);
-  const [prospectos, setProspectos] = useState<
-    { agente: Agente; estado: string }[]
-  >([]);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const [callsRes, prospRes] = await Promise.all([
-        supabase
-          .from("call_center_calls")
-          .select("*")
-          .order("created_at", { ascending: false }),
-        supabase.from("call_center_prospectos").select("agente, estado"),
-      ]);
-      if (!active) return;
-      if (callsRes.error) {
-        setError(callsRes.error.message);
-        return;
-      }
-      setCalls((callsRes.data ?? []) as CallCenterCall[]);
-      setProspectos(
-        (prospRes.data ?? []) as { agente: Agente; estado: string }[],
-      );
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const loading = calls === null && !error;
-  const rows = calls ?? [];
-
-  const stats = useMemo(() => {
-    return AGENTES.map((a) => {
-      const propias = rows.filter((c) => c.agente === a.id);
-      const contactadas = propias.filter((c) =>
-        CONTACTADAS.includes(c.estado),
-      ).length;
-      return {
-        ...a,
-        total: propias.length,
-        citas: propias.filter((c) => c.cita_agendada).length,
-        contactadas,
-        prospectosPend: prospectos.filter(
-          (p) => p.agente === a.id && p.estado === "pendiente",
-        ).length,
-      };
-    });
-  }, [rows, prospectos]);
-
-  if (error) {
+  if (callsRes.error) {
     return (
       <>
         <PageHeader
@@ -106,11 +48,29 @@ function AgentesView() {
           subtitle="Rendimiento por agente: dental, gestoría, taller y estética"
         />
         <div className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/5 p-6 text-sm text-[#ff9b9b]">
-          No se pudieron cargar los datos: {error}
+          No se pudieron cargar los datos: {callsRes.error.message}
         </div>
       </>
     );
   }
+
+  const rows = (callsRes.data ?? []) as CallCenterCall[];
+  const prospectos = (prospRes.data ?? []) as {
+    agente: Agente;
+    estado: string;
+  }[];
+
+  const stats = AGENTES.map((a) => {
+    const propias = rows.filter((c) => c.agente === a.id);
+    return {
+      ...a,
+      total: propias.length,
+      citas: propias.filter((c) => c.cita_agendada).length,
+      prospectosPend: prospectos.filter(
+        (p) => p.agente === a.id && p.estado === "pendiente",
+      ).length,
+    };
+  });
 
   const detalle = seleccionado ? AGENTE_MAP[seleccionado] : null;
 
@@ -159,31 +119,20 @@ function AgentesView() {
               <ArrowRight className="ml-auto h-4 w-4 text-muted opacity-0 transition-opacity group-hover:opacity-100" />
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <Mini valor={loading ? "—" : a.total} etiqueta="Llamadas" />
-              <Mini
-                valor={loading ? "—" : a.citas}
-                etiqueta="Citas"
-                color="#00d4aa"
-              />
-              <Mini
-                valor={loading ? "—" : a.prospectosPend}
-                etiqueta="Prosp."
-                color="#ffa94d"
-              />
+              <Mini valor={a.total} etiqueta="Llamadas" />
+              <Mini valor={a.citas} etiqueta="Citas" color="#00d4aa" />
+              <Mini valor={a.prospectosPend} etiqueta="Prosp." color="#ffa94d" />
             </div>
           </Link>
         ))}
       </div>
 
-      {/* Detalle del agente seleccionado */}
       {detalle && (
         <DetalleAgente
-          agente={detalle.id}
           rows={rows.filter((c) => c.agente === detalle.id)}
           prospectosPend={
             stats.find((s) => s.id === detalle.id)?.prospectosPend ?? 0
           }
-          loading={loading}
         />
       )}
     </>
@@ -215,15 +164,11 @@ function Mini({
 }
 
 function DetalleAgente({
-  agente,
   rows,
   prospectosPend,
-  loading,
 }: {
-  agente: Agente;
   rows: CallCenterCall[];
   prospectosPend: number;
-  loading: boolean;
 }) {
   const total = rows.length;
   const citas = rows.filter((c) => c.cita_agendada).length;
@@ -240,32 +185,28 @@ function DetalleAgente({
   return (
     <div className="mt-6 space-y-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard label="Llamadas" value={total} icon={Phone} loading={loading} />
+        <KpiCard label="Llamadas" value={total} icon={Phone} />
         <KpiCard
           label="Citas agendadas"
           value={citas}
           icon={CalendarCheck}
           accent="#00d4aa"
-          loading={loading}
         />
         <KpiCard
           label="Tasa contacto"
           value={formatPercent(contactadas, total)}
           icon={TrendingUp}
           accent="#9d70ff"
-          loading={loading}
         />
         <KpiCard
           label="Prospectos pend."
           value={prospectosPend}
           icon={ListChecks}
           accent="#ffa94d"
-          loading={loading}
         />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Pipeline del agente */}
         <section className="rounded-xl border border-border bg-card/50 p-6">
           <h2 className="text-sm font-semibold tracking-tight">Pipeline</h2>
           <div className="mt-4 flex h-2.5 w-full overflow-hidden rounded-full bg-white/[0.05]">
@@ -300,15 +241,12 @@ function DetalleAgente({
           </ul>
         </section>
 
-        {/* Llamadas recientes del agente */}
         <section className="rounded-xl border border-border bg-card/50 p-6">
           <h2 className="text-sm font-semibold tracking-tight">
             Llamadas recientes
           </h2>
           {recientes.length === 0 ? (
-            <p className="mt-4 text-sm text-muted">
-              {loading ? "Cargando…" : "Sin llamadas todavía."}
-            </p>
+            <p className="mt-4 text-sm text-muted">Sin llamadas todavía.</p>
           ) : (
             <ul className="mt-4 divide-y divide-border/60">
               {recientes.map((c) => {
