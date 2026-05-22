@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Sora } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/sidebar";
+import { AppShell } from "@/components/app-shell";
 
 const sora = Sora({
   subsets: ["latin"],
@@ -21,10 +21,7 @@ export default function RootLayout({
   return (
     <html lang="es" className={sora.variable}>
       <body className="min-h-screen antialiased">
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 px-6 py-8 lg:px-10 lg:py-10">{children}</main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
