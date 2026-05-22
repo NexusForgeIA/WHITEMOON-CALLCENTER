@@ -12,3 +12,15 @@ export function formatPercent(value: number, total: number): string {
   if (total <= 0) return "—";
   return `${Math.round((value / total) * 100)}%`;
 }
+
+/** Fecha y hora cortas en formato es-ES. "—" si no hay valor. */
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
