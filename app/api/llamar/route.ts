@@ -26,14 +26,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // service_role solo en servidor (nunca llega al cliente); autoriza ante el
+  // gateway de la Edge Function (verify_jwt=false en la función).
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(anon ? { Authorization: `Bearer ${anon}` } : {}),
+        ...(serviceKey ? { Authorization: `Bearer ${serviceKey}` } : {}),
       },
       body: JSON.stringify({ agente, telefono, nombre, empresa, prospecto_id }),
     });

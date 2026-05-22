@@ -1,6 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import {
   Phone,
   PhoneCall,
@@ -9,12 +6,15 @@ import {
   ListChecks,
   Timer,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { createServerClient } from "@/lib/supabase-server";
 import { PageHeader } from "@/components/page-header";
 import { KpiCard } from "@/components/kpi-card";
 import { AGENTES } from "@/lib/agentes";
+import { PIPELINE_ORDER, PIPELINE_ESTADO } from "@/lib/labels";
 import { formatDuration, formatPercent } from "@/lib/format";
 import type { Agente, CallEstado, PipelineEstado } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 interface CallRow {
   created_at: string;
@@ -25,52 +25,39 @@ interface CallRow {
   duracion_segundos: number | null;
 }
 
-const PIPELINE: { id: PipelineEstado; label: string; color: string }[] = [
-  { id: "nuevo", label: "Nuevo", color: "#8888a0" },
-  { id: "contactado", label: "Contactado", color: "#4da8ff" },
-  { id: "interesado", label: "Interesado", color: "#9d70ff" },
-  { id: "cita_agendada", label: "Cita agendada", color: "#00d4aa" },
-  { id: "no_interesado", label: "No interesado", color: "#ff6b6b" },
-  { id: "cerrado", label: "Cerrado", color: "#ffa94d" },
-];
-
 const CONTACTADAS: CallEstado[] = ["contestada", "completada"];
 
-export default function DashboardPage() {
-  const [calls, setCalls] = useState<CallRow[] | null>(null);
-  const [prospectosPendientes, setProspectosPendientes] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+export default async function DashboardPage() {
+  const supabase = createServerClient();
+  const [callsRes, prospRes] = await Promise.all([
+    supabase
+      .from("call_center_calls")
+      .select(
+        "created_at, agente, estado, pipeline_estado, cita_agendada, duracion_segundos",
+      )
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("call_center_prospectos")
+      .select("*", { count: "exact", head: true })
+      .eq("estado", "pendiente"),
+  ]);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const [callsRes, prospRes] = await Promise.all([
-        supabase
-          .from("call_center_calls")
-          .select(
-            "created_at, agente, estado, pipeline_estado, cita_agendada, duracion_segundos",
-          )
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("call_center_prospectos")
-          .select("*", { count: "exact", head: true })
-          .eq("estado", "pendiente"),
-      ]);
-      if (!active) return;
-      if (callsRes.error) {
-        setError(callsRes.error.message);
-        return;
-      }
-      setCalls((callsRes.data ?? []) as CallRow[]);
-      setProspectosPendientes(prospRes.count ?? 0);
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+  if (callsRes.error) {
+    return (
+      <>
+        <PageHeader
+          title="Dashboard"
+          subtitle="Resumen general del call center IA"
+        />
+        <div className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/5 p-6 text-sm text-[#ff9b9b]">
+          No se pudieron cargar los datos: {callsRes.error.message}
+        </div>
+      </>
+    );
+  }
 
-  const loading = calls === null && !error;
-  const rows = calls ?? [];
+  const rows = (callsRes.data ?? []) as CallRow[];
+  const prospectosPendientes = prospRes.count ?? 0;
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -89,9 +76,10 @@ export default function DashboardPage() {
       )
     : 0;
 
-  const pipeline = PIPELINE.map((p) => ({
-    ...p,
-    count: rows.filter((c) => c.pipeline_estado === p.id).length,
+  const pipeline = PIPELINE_ORDER.map((id) => ({
+    id,
+    ...PIPELINE_ESTADO[id],
+    count: rows.filter((c) => c.pipeline_estado === id).length,
   }));
   const pipelineTotal = pipeline.reduce((a, p) => a + p.count, 0);
 
@@ -102,20 +90,6 @@ export default function DashboardPage() {
   }));
   const maxAgente = Math.max(1, ...porAgente.map((a) => a.count));
 
-  if (error) {
-    return (
-      <>
-        <PageHeader
-          title="Dashboard"
-          subtitle="Resumen general del call center IA"
-        />
-        <div className="rounded-xl border border-[#ff6b6b]/30 bg-[#ff6b6b]/5 p-6 text-sm text-[#ff9b9b]">
-          No se pudieron cargar los datos: {error}
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
       <PageHeader
@@ -125,19 +99,13 @@ export default function DashboardPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Llamadas hoy" value={hoy} icon={Phone} loading={loading} />
-        <KpiCard
-          label="Total llamadas"
-          value={total}
-          icon={PhoneCall}
-          loading={loading}
-        />
+        <KpiCard label="Llamadas hoy" value={hoy} icon={Phone} />
+        <KpiCard label="Total llamadas" value={total} icon={PhoneCall} />
         <KpiCard
           label="Citas agendadas"
           value={citas}
           icon={CalendarCheck}
           accent="#00d4aa"
-          loading={loading}
         />
         <KpiCard
           label="Tasa contacto"
@@ -145,20 +113,17 @@ export default function DashboardPage() {
           icon={TrendingUp}
           accent="#9d70ff"
           hint={`${contactadas}/${total} contactadas`}
-          loading={loading}
         />
         <KpiCard
           label="Duración media"
           value={formatDuration(avgDuracion)}
           icon={Timer}
-          loading={loading}
         />
         <KpiCard
           label="Prospectos pend."
           value={prospectosPendientes}
           icon={ListChecks}
           accent="#ffa94d"
-          loading={loading}
         />
       </div>
 
@@ -171,23 +136,21 @@ export default function DashboardPage() {
             embudo
           </p>
 
-          {/* Barra de proporción */}
           <div className="mt-5 flex h-2.5 w-full overflow-hidden rounded-full bg-white/[0.05]">
-            {pipelineTotal === 0
-              ? null
-              : pipeline.map(
-                  (p) =>
-                    p.count > 0 && (
-                      <div
-                        key={p.id}
-                        style={{
-                          width: `${(p.count / pipelineTotal) * 100}%`,
-                          backgroundColor: p.color,
-                        }}
-                        title={`${p.label}: ${p.count}`}
-                      />
-                    ),
-                )}
+            {pipelineTotal > 0 &&
+              pipeline.map(
+                (p) =>
+                  p.count > 0 && (
+                    <div
+                      key={p.id}
+                      style={{
+                        width: `${(p.count / pipelineTotal) * 100}%`,
+                        backgroundColor: p.color,
+                      }}
+                      title={`${p.label}: ${p.count}`}
+                    />
+                  ),
+              )}
           </div>
 
           <ul className="mt-5 space-y-3">
@@ -248,7 +211,7 @@ export default function DashboardPage() {
         </section>
       </div>
 
-      {!loading && total === 0 && (
+      {total === 0 && (
         <p className="mt-6 text-center text-xs text-muted">
           Aún no hay llamadas registradas. Los KPIs se actualizarán según Bland.ai
           vaya completando llamadas.

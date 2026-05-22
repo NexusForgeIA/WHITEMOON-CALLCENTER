@@ -18,14 +18,15 @@ Panel **interno**, protegido por middleware. Usuario: `whitemoon`, contraseña e
 Crea `.env.local` con:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://mlaqtniujnvfxcvcourm.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key del proyecto>   # solo SELECT (RLS)
+SUPABASE_URL=https://mlaqtniujnvfxcvcourm.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service_role key>             # solo servidor, bypassa RLS
 BLAND_WEBHOOK_URL=https://mlaqtniujnvfxcvcourm.supabase.co/functions/v1/bland-outbound
 PANEL_PASSWORD=<clave fuerte del panel>                  # login del panel
 ```
 
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` viaja al navegador; con las RLS endurecidas solo permite **lectura**.
-- `BLAND_WEBHOOK_URL` y `PANEL_PASSWORD` son **solo servidor** (sin prefijo `NEXT_PUBLIC_`).
+- **Ninguna variable lleva prefijo `NEXT_PUBLIC_`**: las lecturas son server-side (Server Components con `service_role`), así que no se expone ninguna clave de Supabase en el bundle.
+- `SUPABASE_URL` también se acepta como `NEXT_PUBLIC_SUPABASE_URL` (la URL no es secreta).
+- `SUPABASE_SERVICE_ROLE_KEY`, `BLAND_WEBHOOK_URL` y `PANEL_PASSWORD` son **solo servidor**.
 
 ## Desarrollo
 
