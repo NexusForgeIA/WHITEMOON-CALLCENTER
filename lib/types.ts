@@ -1,0 +1,61 @@
+// Tipos del dominio call center — espejo de las tablas Supabase
+// public.call_center_calls y public.call_center_prospectos.
+
+export type Agente = "dental" | "gestoria" | "taller" | "estetica";
+
+export type CallEstado =
+  | "pendiente"
+  | "en_curso"
+  | "contestada"
+  | "no_contestada"
+  | "buzon"
+  | "completada"
+  | "error";
+
+export type PipelineEstado =
+  | "nuevo"
+  | "contactado"
+  | "interesado"
+  | "cita_agendada"
+  | "no_interesado"
+  | "cerrado";
+
+export type ProspectoEstado =
+  | "pendiente"
+  | "llamando"
+  | "completado"
+  | "descartado";
+
+export interface CallCenterCall {
+  id: string;
+  created_at: string;
+  agente: Agente;
+  nombre: string | null;
+  telefono: string;
+  empresa: string | null;
+  sector: string | null;
+  bland_call_id: string | null;
+  estado: CallEstado;
+  duracion_segundos: number | null;
+  pipeline_estado: PipelineEstado;
+  transcripcion: string | null;
+  resumen: string | null;
+  cita_agendada: boolean;
+  cita_fecha: string | null;
+  notas: string | null;
+  grabacion_url: string | null;
+}
+
+export interface CallCenterProspecto {
+  id: string;
+  created_at: string;
+  nombre: string | null;
+  telefono: string;
+  empresa: string | null;
+  sector: string | null;
+  agente: Agente;
+  estado: ProspectoEstado;
+  intentos: number;
+  ultima_llamada: string | null;
+  notas: string | null;
+}

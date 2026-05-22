@@ -1,15 +1,14 @@
 import { PageHeader } from "@/components/page-header";
 
-export default function Home() {
+export default function AgentesPage() {
   return (
     <>
       <PageHeader
-        title="Dashboard"
-        subtitle="Resumen general del call center IA"
+        title="Agentes"
+        subtitle="Rendimiento por agente: dental, gestoría, taller y estética"
       />
       <div className="rounded-xl border border-border bg-card/50 p-8 text-sm text-muted">
-        Base del panel lista. Los KPIs conectados a Supabase llegan en el
-        siguiente bloque.
+        En construcción — próximamente.
       </div>
     </>
   );
