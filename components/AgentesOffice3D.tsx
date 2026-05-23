@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useMemo, useRef, useState, type ComponentProps } from "react";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
   Billboard,
@@ -37,7 +44,7 @@ const STATIONS: Record<Agente, { x: number; z: number }> = {
 };
 
 const AISLE_Z = -3.5; // pasillo entre filas
-const CONFETTI_COLORES = ["#7c4dff", "#00d4aa", "#ffce54", "#ff6fae", "#4da8ff"];
+const CONFETTI_COLORES = ["#7c4dff", "#00d4aa", "#f5c842"];
 const LIBRO_COLORES = ["#7c4dff", "#00d4aa", "#ffce54", "#ff6fae", "#4da8ff", "#9d70ff"];
 
 // Dimensiones de la sala
@@ -58,41 +65,36 @@ function SafeText(props: ComponentProps<typeof Text>) {
 
 function Confetti() {
   const ref = useRef<THREE.Group>(null);
+  // 6 esferas pequeñas (3 colores) que orbitan y suben/caen alrededor del agente.
   const piezas = useMemo(
     () =>
-      Array.from({ length: 22 }, () => ({
-        x: (Math.random() - 0.5) * 1.3,
-        z: (Math.random() - 0.5) * 1.3,
-        y: Math.random() * 1.6,
-        vel: 0.4 + Math.random() * 0.7,
-        rot: Math.random() * Math.PI,
-        col: CONFETTI_COLORES[Math.floor(Math.random() * CONFETTI_COLORES.length)],
+      Array.from({ length: 6 }, (_, i) => ({
+        ang: (i / 6) * Math.PI * 2,
+        rad: 0.45 + Math.random() * 0.35,
+        fase: Math.random() * Math.PI * 2,
+        col: CONFETTI_COLORES[i % CONFETTI_COLORES.length],
       })),
     [],
   );
 
-  useFrame((_, delta) => {
+  useFrame((state) => {
     const g = ref.current;
     if (!g) return;
+    const t = state.clock.elapsedTime;
     g.children.forEach((m, i) => {
-      m.position.y -= piezas[i].vel * delta;
-      m.rotation.x += delta * 3;
-      m.rotation.y += delta * 2.2;
-      if (m.position.y < 0) m.position.y = 1.7;
+      const p = piezas[i];
+      m.position.x = Math.cos(p.ang + t * 1.5) * p.rad;
+      m.position.z = Math.sin(p.ang + t * 1.5) * p.rad;
+      m.position.y = 1.6 + Math.sin(t * 3 + p.fase) * 0.4; // sube y cae
     });
   });
 
   return (
-    <group ref={ref} position={[0, 1.7, 0]}>
+    <group ref={ref}>
       {piezas.map((p, i) => (
-        <mesh key={i} position={[p.x, p.y, p.z]} rotation={[p.rot, p.rot, 0]}>
-          <planeGeometry args={[0.07, 0.07]} />
-          <meshStandardMaterial
-            color={p.col}
-            emissive={p.col}
-            emissiveIntensity={0.5}
-            side={THREE.DoubleSide}
-          />
+        <mesh key={i}>
+          <sphereGeometry args={[0.06, 10, 10]} />
+          <meshStandardMaterial color={p.col} emissive={p.col} emissiveIntensity={0.6} />
         </mesh>
       ))}
     </group>
@@ -276,30 +278,51 @@ function Avatar({
   selected,
   esLider,
   onSelect,
+  index,
 }: {
   agent: AgenteRanked;
   selected: boolean;
   esLider: boolean;
   onSelect: (id: Agente) => void;
+  index: number;
 }) {
   const group = useRef<THREE.Group>(null);
+  const head = useRef<THREE.Group>(null);
   const legL = useRef<THREE.Group>(null);
   const legR = useRef<THREE.Group>(null);
   const armL = useRef<THREE.Group>(null);
   const armR = useRef<THREE.Group>(null);
   const [hover, setHover] = useState(false);
 
+  // "celebrando" dura 3s y luego el agente vuelve a "disponible".
+  const [celebrando, setCelebrando] = useState(agent.estadoLive === "celebrando");
+  useEffect(() => {
+    if (agent.estadoLive !== "celebrando") {
+      setCelebrando(false);
+      return;
+    }
+    setCelebrando(true);
+    const id = setTimeout(() => setCelebrando(false), 3000);
+    return () => clearTimeout(id);
+  }, [agent.estadoLive]);
+
   const { x, z } = STATIONS[agent.id];
   const fem = agent.genero === "femenino";
   const o = agent.outfit;
-  const fase = useMemo(() => Math.random() * Math.PI * 2, []);
+  // Offset de fase determinista por índice para desincronizar a los agentes.
+  const phase = index * ((Math.PI * 2) / 6);
   const piernaColor = fem ? o.piel : "#1c1c26";
 
   useFrame((state) => {
     const g = group.current;
     if (!g) return;
     const t = state.clock.elapsedTime;
+    const h = head.current;
 
+    // Reset de articulaciones cada frame
+    g.rotation.x = 0;
+    g.rotation.z = 0;
+    if (h) h.rotation.set(0, 0, 0);
     [legL, legR].forEach((r) => r.current && (r.current.rotation.x = 0));
     [armL, armR].forEach((r) => {
       if (r.current) {
@@ -308,46 +331,70 @@ function Avatar({
       }
     });
 
-    switch (agent.estadoLive) {
+    // Tras 3s de celebración se comporta como "disponible".
+    const estado =
+      agent.estadoLive === "celebrando" && !celebrando
+        ? "disponible"
+        : agent.estadoLive;
+
+    switch (estado) {
       case "llamando": {
-        const dir = Math.sin(t * 0.5 + fase);
-        g.position.x = x + dir * 1.3;
-        g.position.z = AISLE_Z;
-        g.position.y = Math.abs(Math.sin(t * 6)) * 0.04;
-        g.rotation.y = Math.cos(t * 0.5 + fase) >= 0 ? Math.PI / 2 : -Math.PI / 2;
-        const sw = Math.sin(t * 6) * 0.5;
+        // Sale de detrás de la mesa hacia su banda del pasillo y pasea X ±0.8.
+        const aisleDir = z > AISLE_Z ? -1 : 1;
+        g.position.x = x + Math.sin(t * 0.7 + phase) * 0.8;
+        g.position.z = z + aisleDir * 0.5;
+        g.position.y = Math.abs(Math.sin(t * 6 + phase)) * 0.04;
+        g.rotation.y = Math.cos(t * 0.7 + phase) >= 0 ? Math.PI / 2 : -Math.PI / 2;
+        const sw = Math.sin(t * 6 + phase) * 0.5;
         if (legL.current) legL.current.rotation.x = sw;
         if (legR.current) legR.current.rotation.x = -sw;
         if (armL.current) armL.current.rotation.x = -sw;
         if (armR.current) armR.current.rotation.x = sw;
+        // Cabeza animada, inclinada como hablando.
+        if (h) {
+          h.rotation.z = Math.sin(t * 2 + phase) * 0.12;
+          h.rotation.x = Math.sin(t * 3 + phase) * 0.1;
+        }
         break;
       }
       case "tramitando": {
-        g.position.set(x, -0.33, z - 0.1);
+        // Sentado, inclinado hacia el monitor, con tecleo (osc. en Z, ciclo 0.8s).
+        g.position.x = x;
+        g.position.y = -0.3;
+        g.position.z = z - 0.1 + Math.sin(t * ((Math.PI * 2) / 0.8) + phase) * 0.015;
         g.rotation.y = 0;
+        g.rotation.x = 0.2;
         if (legL.current) legL.current.rotation.x = -1.4;
         if (legR.current) legR.current.rotation.x = -1.4;
-        const typ = Math.sin(t * 8 + fase) * 0.15;
+        const typ = Math.sin(t * 8 + phase) * 0.12;
         if (armL.current) armL.current.rotation.x = -1.0 + typ;
         if (armR.current) armR.current.rotation.x = -1.0 - typ;
+        if (h) h.rotation.x = 0.15;
         break;
       }
       case "celebrando": {
+        // Salto 0→0.4→0 (ciclo 0.6s) + spin completo en Y.
         g.position.x = x;
         g.position.z = z;
-        g.position.y = Math.abs(Math.sin(t * 4 + fase)) * 0.4;
-        g.rotation.y = Math.sin(t * 2) * 0.25;
+        g.position.y = Math.abs(Math.sin(t * (Math.PI / 0.6) + phase)) * 0.4;
+        g.rotation.y = t * 3;
         const up = 2.3 + Math.sin(t * 9) * 0.15;
         if (armL.current) armL.current.rotation.z = up;
         if (armR.current) armR.current.rotation.z = -up;
         break;
       }
       default: {
+        // Disponible: idle activo de pie (respiración + cabeza + peso corporal).
         g.position.x = x;
         g.position.z = z;
-        g.position.y = Math.sin(t * 1.2 + fase) * 0.03;
-        g.rotation.y = Math.sin(t * 0.4 + fase) * 0.12;
-        const br = Math.sin(t * 1.5 + fase) * 0.05;
+        g.position.y = Math.sin(t * Math.PI + phase) * 0.03; // respiración ~2s
+        g.rotation.y = 0;
+        g.rotation.x = Math.sin(t * 1.2 + phase) * 0.02; // peso corporal
+        if (h) {
+          h.rotation.y = Math.sin(t * 1.8 + phase) * 0.15; // giro de cabeza ~3.5s
+          h.rotation.x = Math.sin(t * 1.0 + phase) * 0.05;
+        }
+        const br = Math.sin(t * 1.5 + phase) * 0.04;
         if (armL.current) armL.current.rotation.x = br;
         if (armR.current) armR.current.rotation.x = -br;
       }
@@ -457,43 +504,46 @@ function Avatar({
         {piel}
       </mesh>
 
-      <mesh position={[0, 1.84, 0]} castShadow>
-        <sphereGeometry args={[0.26, 24, 24]} />
-        {piel}
-      </mesh>
+      {/* Cabeza (grupo con pivote en el cuello para animarla) */}
+      <group ref={head} position={[0, 1.7, 0]}>
+        <mesh position={[0, 0.14, 0]} castShadow>
+          <sphereGeometry args={[0.26, 24, 24]} />
+          {piel}
+        </mesh>
 
-      <mesh position={[0, 1.86, -0.02]}>
-        <sphereGeometry args={[0.285, 20, 20, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
-        <meshStandardMaterial color={o.pelo} roughness={0.85} />
-      </mesh>
-      {fem &&
-        [-0.23, 0.23].map((hx, i) => (
-          <mesh key={i} position={[hx, 1.62, -0.04]}>
-            <boxGeometry args={[0.1, 0.42, 0.16]} />
-            <meshStandardMaterial color={o.pelo} roughness={0.85} />
+        <mesh position={[0, 0.16, -0.02]}>
+          <sphereGeometry args={[0.285, 20, 20, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
+          <meshStandardMaterial color={o.pelo} roughness={0.85} />
+        </mesh>
+        {fem &&
+          [-0.23, 0.23].map((hx, i) => (
+            <mesh key={i} position={[hx, -0.08, -0.04]}>
+              <boxGeometry args={[0.1, 0.42, 0.16]} />
+              <meshStandardMaterial color={o.pelo} roughness={0.85} />
+            </mesh>
+          ))}
+
+        <mesh position={[0, 0.14, 0]}>
+          <torusGeometry args={[0.27, 0.025, 8, 20, Math.PI]} />
+          <meshStandardMaterial color="#15151c" metalness={0.5} roughness={0.4} />
+        </mesh>
+        {[-0.27, 0.27].map((ex, i) => (
+          <mesh key={i} position={[ex, 0.12, 0]}>
+            <sphereGeometry args={[0.05, 12, 12]} />
+            <meshStandardMaterial
+              color={agent.color}
+              emissive={agent.color}
+              emissiveIntensity={0.4}
+            />
           </mesh>
         ))}
-
-      <mesh position={[0, 1.84, 0]}>
-        <torusGeometry args={[0.27, 0.025, 8, 20, Math.PI]} />
-        <meshStandardMaterial color="#15151c" metalness={0.5} roughness={0.4} />
-      </mesh>
-      {[-0.27, 0.27].map((ex, i) => (
-        <mesh key={i} position={[ex, 1.82, 0]}>
-          <sphereGeometry args={[0.05, 12, 12]} />
-          <meshStandardMaterial
-            color={agent.color}
-            emissive={agent.color}
-            emissiveIntensity={0.4}
-          />
+        <mesh position={[0.16, 0.04, 0.2]} rotation={[0, 0, -0.5]}>
+          <boxGeometry args={[0.03, 0.18, 0.03]} />
+          <meshStandardMaterial color="#15151c" />
         </mesh>
-      ))}
-      <mesh position={[0.16, 1.74, 0.2]} rotation={[0, 0, -0.5]}>
-        <boxGeometry args={[0.03, 0.18, 0.03]} />
-        <meshStandardMaterial color="#15151c" />
-      </mesh>
+      </group>
 
-      {agent.estadoLive === "celebrando" && <Confetti />}
+      {celebrando && <Confetti />}
       {esLider && <Corona />}
 
       <Billboard position={[0, 2.55, 0]}>
@@ -802,8 +852,9 @@ function Sofia() {
     const g = group.current;
     if (!g) return;
     const t = state.clock.elapsedTime;
-    g.position.y = Math.sin(t * 0.6 + fase) * 0.015;
-    g.rotation.y = Math.sin(t * 0.3 + fase) * 0.06;
+    // Gira suavemente mirando a los agentes (±0.3 rad, ciclo 6s). Nunca salta.
+    g.position.y = Math.sin(t * 0.5 + fase) * 0.012;
+    g.rotation.y = Math.sin(t * (Math.PI / 3) + fase) * 0.3;
   });
 
   return (
@@ -1035,10 +1086,11 @@ function Escena({
       })}
 
       {/* Avatares */}
-      {ranking.map((a) => (
+      {ranking.map((a, i) => (
         <Avatar
           key={a.id}
           agent={a}
+          index={i}
           selected={selected === a.id}
           esLider={a.id === liderId}
           onSelect={onSelect}
