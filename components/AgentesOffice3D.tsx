@@ -2,7 +2,6 @@
 
 import {
   Suspense,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -294,18 +293,6 @@ function Avatar({
   const armR = useRef<THREE.Group>(null);
   const [hover, setHover] = useState(false);
 
-  // "celebrando" dura 3s y luego el agente vuelve a "disponible".
-  const [celebrando, setCelebrando] = useState(agent.estadoLive === "celebrando");
-  useEffect(() => {
-    if (agent.estadoLive !== "celebrando") {
-      setCelebrando(false);
-      return;
-    }
-    setCelebrando(true);
-    const id = setTimeout(() => setCelebrando(false), 3000);
-    return () => clearTimeout(id);
-  }, [agent.estadoLive]);
-
   const { x, z } = STATIONS[agent.id];
   const fem = agent.genero === "femenino";
   const o = agent.outfit;
@@ -331,13 +318,8 @@ function Avatar({
       }
     });
 
-    // Tras 3s de celebración se comporta como "disponible".
-    const estado =
-      agent.estadoLive === "celebrando" && !celebrando
-        ? "disponible"
-        : agent.estadoLive;
-
-    switch (estado) {
+    // Celebra de forma continua mientras el dato siga en "celebrando".
+    switch (agent.estadoLive) {
       case "llamando": {
         // Sale de detrás de la mesa hacia su banda del pasillo y pasea X ±0.8.
         const aisleDir = z > AISLE_Z ? -1 : 1;
@@ -543,7 +525,7 @@ function Avatar({
         </mesh>
       </group>
 
-      {celebrando && <Confetti />}
+      {agent.estadoLive === "celebrando" && <Confetti />}
       {esLider && <Corona />}
 
       <Billboard position={[0, 2.55, 0]}>
