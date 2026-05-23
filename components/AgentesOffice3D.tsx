@@ -786,6 +786,173 @@ function LamparaPie({ position }: { position: [number, number, number] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Sofía — directora, de pie frente a la pantalla de clasificación
+// ---------------------------------------------------------------------------
+
+function Sofia() {
+  const group = useRef<THREE.Group>(null);
+  const fase = useMemo(() => Math.random() * Math.PI * 2, []);
+  const blazer = "#111118";
+  const oro = "#f5c842";
+  const piel = "#e8b89a";
+  const pelo = "#1a120a";
+
+  // Idle solemne: oscilación muy leve.
+  useFrame((state) => {
+    const g = group.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime;
+    g.position.y = Math.sin(t * 0.6 + fase) * 0.015;
+    g.rotation.y = Math.sin(t * 0.3 + fase) * 0.06;
+  });
+
+  return (
+    <group ref={group} position={[0, 0, -6]} scale={1.1}>
+      {/* Piernas */}
+      {[-0.16, 0.16].map((lx, i) => (
+        <group key={i} position={[lx, 0.78, 0]}>
+          <mesh position={[0, -0.39, 0]} castShadow>
+            <cylinderGeometry args={[0.1, 0.09, 0.78, 12]} />
+            <meshStandardMaterial color={piel} roughness={0.7} />
+          </mesh>
+          <mesh position={[0, -0.8, 0.06]}>
+            <boxGeometry args={[0.14, 0.08, 0.24]} />
+            <meshStandardMaterial color="#0d0d14" />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Falda negra */}
+      <mesh position={[0, 0.62, 0]} castShadow>
+        <cylinderGeometry args={[0.22, 0.44, 0.5, 16]} />
+        <meshStandardMaterial color="#15151c" roughness={0.6} />
+      </mesh>
+      {/* Cinturón dorado */}
+      <mesh position={[0, 0.82, 0]}>
+        <cylinderGeometry args={[0.34, 0.34, 0.06, 24, 1, true]} />
+        <meshStandardMaterial
+          color={oro}
+          metalness={0.8}
+          roughness={0.3}
+          emissive={oro}
+          emissiveIntensity={0.25}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Torso: blazer negro */}
+      <RoundedBox
+        args={[0.62, 0.74, 0.36]}
+        radius={0.08}
+        smoothness={4}
+        position={[0, 1.18, 0]}
+        castShadow
+      >
+        <meshStandardMaterial color={blazer} roughness={0.5} metalness={0.18} />
+      </RoundedBox>
+      {/* Detalles dorados del blazer: solapa + botonadura */}
+      <mesh position={[0, 1.44, 0.16]}>
+        <boxGeometry args={[0.5, 0.07, 0.04]} />
+        <meshStandardMaterial color={oro} metalness={0.8} roughness={0.3} />
+      </mesh>
+      <mesh position={[0, 1.1, 0.19]}>
+        <boxGeometry args={[0.035, 0.42, 0.02]} />
+        <meshStandardMaterial color={oro} metalness={0.8} roughness={0.3} />
+      </mesh>
+
+      {/* Brazos */}
+      {[-0.4, 0.4].map((ax, i) => (
+        <group key={i} position={[ax, 1.48, 0]}>
+          <mesh position={[0, -0.3, 0]} castShadow>
+            <capsuleGeometry args={[0.08, 0.5, 4, 8]} />
+            <meshStandardMaterial color={blazer} roughness={0.5} metalness={0.18} />
+          </mesh>
+          <mesh position={[0, -0.62, 0]}>
+            <sphereGeometry args={[0.08, 12, 12]} />
+            <meshStandardMaterial color={piel} roughness={0.7} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Cuello + cabeza */}
+      <mesh position={[0, 1.6, 0]}>
+        <cylinderGeometry args={[0.09, 0.09, 0.12, 12]} />
+        <meshStandardMaterial color={piel} roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 1.84, 0]} castShadow>
+        <sphereGeometry args={[0.26, 24, 24]} />
+        <meshStandardMaterial color={piel} roughness={0.7} />
+      </mesh>
+
+      {/* Pelo */}
+      <mesh position={[0, 1.86, -0.02]}>
+        <sphereGeometry args={[0.285, 20, 20, 0, Math.PI * 2, 0, Math.PI * 0.6]} />
+        <meshStandardMaterial color={pelo} roughness={0.85} />
+      </mesh>
+      {[-0.23, 0.23].map((hx, i) => (
+        <mesh key={i} position={[hx, 1.62, -0.04]}>
+          <boxGeometry args={[0.1, 0.42, 0.16]} />
+          <meshStandardMaterial color={pelo} roughness={0.85} />
+        </mesh>
+      ))}
+
+      {/* Auriculares con micro (earpieces dorados) */}
+      <mesh position={[0, 1.84, 0]}>
+        <torusGeometry args={[0.27, 0.025, 8, 20, Math.PI]} />
+        <meshStandardMaterial color="#15151c" metalness={0.5} roughness={0.4} />
+      </mesh>
+      {[-0.27, 0.27].map((ex, i) => (
+        <mesh key={i} position={[ex, 1.82, 0]}>
+          <sphereGeometry args={[0.05, 12, 12]} />
+          <meshStandardMaterial
+            color={oro}
+            emissive={oro}
+            emissiveIntensity={0.4}
+            metalness={0.7}
+            roughness={0.3}
+          />
+        </mesh>
+      ))}
+      <mesh position={[0.16, 1.74, 0.2]} rotation={[0, 0, -0.5]}>
+        <boxGeometry args={[0.03, 0.18, 0.03]} />
+        <meshStandardMaterial color="#15151c" />
+      </mesh>
+
+      {/* Halo dorado flotante (corona de directora) */}
+      <Float speed={2} floatIntensity={0.3} rotationIntensity={0.4}>
+        <mesh position={[0, 2.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.18, 0.02, 8, 32]} />
+          <meshStandardMaterial
+            color={oro}
+            metalness={0.9}
+            roughness={0.2}
+            emissive={oro}
+            emissiveIntensity={0.6}
+          />
+        </mesh>
+      </Float>
+
+      {/* Badge: "SOFÍA · Directora" */}
+      <Billboard position={[0, 2.55, 0]}>
+        <SafeText
+          fontSize={0.26}
+          color={oro}
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.014}
+          outlineColor="#08080d"
+        >
+          SOFÍA · Directora
+        </SafeText>
+      </Billboard>
+
+      {/* Foco cálido sobre la directora */}
+      <pointLight position={[0, 2.6, 0.6]} intensity={0.5} distance={4} color="#fff0c8" />
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Escena dentro del Canvas
 // ---------------------------------------------------------------------------
 
@@ -847,6 +1014,9 @@ function Escena({
       />
 
       <Sala ranking={ranking} />
+
+      {/* Sofía, la directora, frente a la pantalla */}
+      <Sofia />
 
       {/* Plantas en las esquinas */}
       <Planta position={[-6, 0, -6.3]} />
