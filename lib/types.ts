@@ -1,7 +1,23 @@
 // Tipos del dominio call center — espejo de las tablas Supabase
 // public.call_center_calls y public.call_center_prospectos.
 
-export type Agente = "dental" | "gestoria" | "taller" | "estetica";
+export type Agente =
+  | "dental"
+  | "gestoria"
+  | "taller"
+  | "estetica"
+  | "inmobiliaria"
+  | "hosteleria";
+
+/** Género del avatar 3D que representa al agente. */
+export type Genero = "masculino" | "femenino";
+
+/** Estado de animación del avatar en la oficina 3D. */
+export type EstadoAnim =
+  | "disponible"
+  | "llamando"
+  | "tramitando"
+  | "celebrando";
 
 export type CallEstado =
   | "pendiente"
