@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: whitemoon-callcenter
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: PANEL_PASSWORD
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Requerida por /api/llamar (proxy server-side a la Edge Function
+      # bland-outbound). Sin ella el lanzamiento de llamadas devuelve 500.
+      - key: BLAND_WEBHOOK_URL
+        sync: false
