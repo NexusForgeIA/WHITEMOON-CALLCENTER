@@ -260,7 +260,6 @@ Deno.serve(async (req: Request) => {
           empresa: empresa || "",
           prospecto_id: prospecto_id || ""
         },
-        first_sentence: `Hola, soy ${config.nombre} de WhiteMoon${nombre ? `, ¿estoy hablando con ${nombre}?` : ", ¿me podría atender un momento?"}`,
         record: true
       })
     });
