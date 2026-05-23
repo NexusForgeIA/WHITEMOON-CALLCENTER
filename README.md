@@ -2,6 +2,8 @@
 
 Panel interno de gestión del call center IA de WhiteMoon. Next.js 16 (App Router, TypeScript) + Tailwind v4 + Supabase. Las llamadas las lanza Bland.ai vía Edge Functions.
 
+**Producción (Render):** https://whitemoon-callcenter.onrender.com
+
 ## Páginas
 
 - `/` — Dashboard general (KPIs, pipeline, actividad por agente)
@@ -34,6 +36,30 @@ PANEL_PASSWORD=<clave fuerte del panel>                  # login del panel
 npm install
 npm run dev   # http://localhost:3000
 ```
+
+## Deploy (Render)
+
+Producción en [Render](https://render.com): **https://whitemoon-callcenter.onrender.com**
+
+El repo incluye [`render.yaml`](render.yaml) (Blueprint):
+
+- **Build:** `npm install && npm run build`
+- **Start:** `npm run start`
+- **Auto-deploy:** con el servicio conectado a la rama `main`, cada push/merge a `main` reconstruye y despliega automáticamente.
+
+### Deploy manual
+
+Desde el dashboard de Render (*Manual Deploy → Deploy latest commit*) o con el CLI:
+
+```bash
+render deploy --service whitemoon-callcenter
+```
+
+### Variables de entorno
+
+Se configuran en *Environment* del servicio (todas `sync: false`, ninguna se commitea): `PANEL_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL` (o `SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY` y `BLAND_WEBHOOK_URL`.
+
+> `NEXT_PUBLIC_SUPABASE_ANON_KEY` aparece en el blueprint por compatibilidad, pero el código actual **no la usa** (las lecturas son server-side con `service_role`).
 
 ## Seguridad
 
