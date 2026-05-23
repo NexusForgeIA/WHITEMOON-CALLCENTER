@@ -4,40 +4,46 @@ import { Suspense, useMemo, useRef, useState, type ComponentProps } from "react"
 import { Canvas, useFrame } from "@react-three/fiber";
 import {
   Billboard,
-  ContactShadows,
   Float,
-  Grid,
   OrbitControls,
   PerspectiveCamera,
   RoundedBox,
   Text,
 } from "@react-three/drei";
 import * as THREE from "three";
+import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
 import { AGENTES } from "@/lib/agentes";
 import type { AgenteRanked } from "@/lib/ranking";
 import type { Agente } from "@/lib/types";
 
+// RectAreaLight necesita estos uniforms para iluminar (solo en cliente).
+if (typeof window !== "undefined") {
+  RectAreaLightUniformsLib.init();
+}
+
 // ---------------------------------------------------------------------------
-// Distribución de la oficina: 2 filas de 3 puestos.
+// Distribución de la oficina: 2 filas de 3 puestos (posiciones sin cambios).
 //   Fila frontal (z = -2):  Marcos · Laura · Diego
 //   Fila trasera (z = -5):  Carlos · Ana   · Sara
-//   Separación lateral: x = -3, 0, 3
 // ---------------------------------------------------------------------------
 
 const STATIONS: Record<Agente, { x: number; z: number }> = {
-  dental: { x: -3, z: -2 }, // Marcos
-  gestoria: { x: 0, z: -2 }, // Laura
-  taller: { x: 3, z: -2 }, // Diego
-  inmobiliaria: { x: -3, z: -5 }, // Carlos
-  estetica: { x: 0, z: -5 }, // Ana
-  hosteleria: { x: 3, z: -5 }, // Sara
+  dental: { x: -3, z: -2 },
+  gestoria: { x: 0, z: -2 },
+  taller: { x: 3, z: -2 },
+  inmobiliaria: { x: -3, z: -5 },
+  estetica: { x: 0, z: -5 },
+  hosteleria: { x: 3, z: -5 },
 };
 
-const AISLE_Z = -3.5; // pasillo entre las dos filas
+const AISLE_Z = -3.5; // pasillo entre filas
 const CONFETTI_COLORES = ["#7c4dff", "#00d4aa", "#ffce54", "#ff6fae", "#4da8ff"];
+const LIBRO_COLORES = ["#7c4dff", "#00d4aa", "#ffce54", "#ff6fae", "#4da8ff", "#9d70ff"];
 
-// <Text> envuelto en Suspense: la carga de la fuente (troika) no bloquea el
-// resto de la escena; el texto aparece cuando esté listo.
+// Dimensiones de la sala
+const ROOM = { x: 7, zBack: -7, zFront: 4, h: 4 };
+
+// <Text> en su propio Suspense: la carga de fuente no bloquea la escena.
 function SafeText(props: ComponentProps<typeof Text>) {
   return (
     <Suspense fallback={null}>
@@ -134,46 +140,20 @@ function Corona() {
 }
 
 // ---------------------------------------------------------------------------
-// Mobiliario del puesto: mesa, monitor y silla
+// Mobiliario del puesto: mesa, monitor, teclado, cajonera, cable, silla
 // ---------------------------------------------------------------------------
-
-function Mesa() {
-  return (
-    <group>
-      <mesh position={[0, 0.55, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.4, 0.08, 0.8]} />
-        <meshStandardMaterial color="#13131e" roughness={0.6} metalness={0.2} />
-      </mesh>
-      {(
-        [
-          [-0.62, -0.32],
-          [0.62, -0.32],
-          [-0.62, 0.32],
-          [0.62, 0.32],
-        ] as const
-      ).map(([x, z], i) => (
-        <mesh key={i} position={[x, 0.275, z]}>
-          <boxGeometry args={[0.06, 0.55, 0.06]} />
-          <meshStandardMaterial color="#0d0d14" />
-        </mesh>
-      ))}
-    </group>
-  );
-}
 
 function Monitor() {
   const cajaGeo = useMemo(() => new THREE.BoxGeometry(0.8, 0.6, 0.05), []);
   const edges = useMemo(() => new THREE.EdgesGeometry(cajaGeo), [cajaGeo]);
   return (
-    // Sobre la mesa, ligeramente hacia el avatar e inclinado 10° hacia atrás
-    <group position={[0, 0.92, -0.15]} rotation={[-0.17, 0, 0]}>
-      <mesh geometry={cajaGeo}>
+    <group position={[0, 1.0, -0.15]} rotation={[-0.17, 0, 0]}>
+      <mesh geometry={cajaGeo} castShadow>
         <meshStandardMaterial color="#0e0e16" roughness={0.4} metalness={0.3} />
       </mesh>
       <lineSegments geometry={edges}>
         <lineBasicMaterial color="#7c4dff" />
       </lineSegments>
-      {/* Pantalla verde encendida */}
       <mesh position={[0, 0, 0.03]}>
         <planeGeometry args={[0.7, 0.5]} />
         <meshStandardMaterial
@@ -181,10 +161,9 @@ function Monitor() {
           emissive="#00d4aa"
           emissiveIntensity={0.7}
           transparent
-          opacity={0.8}
+          opacity={0.85}
         />
       </mesh>
-      {/* Pie del monitor */}
       <mesh position={[0, -0.42, 0.05]} rotation={[0.17, 0, 0]}>
         <boxGeometry args={[0.12, 0.22, 0.04]} />
         <meshStandardMaterial color="#0e0e16" />
@@ -193,20 +172,67 @@ function Monitor() {
   );
 }
 
+function Mesa() {
+  return (
+    <group>
+      {/* Superficie gruesa */}
+      <mesh position={[0, 0.62, 0]} castShadow receiveShadow>
+        <boxGeometry args={[1.4, 0.1, 0.85]} />
+        <meshStandardMaterial color="#1e1e2e" roughness={0.5} metalness={0.25} />
+      </mesh>
+      {/* Patas */}
+      {(
+        [
+          [-0.64, -0.36],
+          [0.64, -0.36],
+          [-0.64, 0.36],
+          [0.64, 0.36],
+        ] as const
+      ).map(([x, z], i) => (
+        <mesh key={i} position={[x, 0.3, z]} castShadow>
+          <boxGeometry args={[0.07, 0.6, 0.07]} />
+          <meshStandardMaterial color="#111118" metalness={0.4} roughness={0.5} />
+        </mesh>
+      ))}
+      {/* Cajonera lateral */}
+      <mesh position={[0.5, 0.3, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.34, 0.5, 0.6]} />
+        <meshStandardMaterial color="#13131e" roughness={0.6} />
+      </mesh>
+      {[0.42, 0.22].map((y, i) => (
+        <mesh key={i} position={[0.68, y, 0]}>
+          <boxGeometry args={[0.02, 0.02, 0.18]} />
+          <meshStandardMaterial color="#7c4dff" />
+        </mesh>
+      ))}
+      {/* Teclado */}
+      <mesh position={[0, 0.68, 0.24]} castShadow>
+        <boxGeometry args={[0.5, 0.03, 0.18]} />
+        <meshStandardMaterial color="#0a0a14" roughness={0.6} />
+      </mesh>
+      {/* Cable del auricular (cae desde el monitor a la mesa) */}
+      <mesh position={[-0.34, 0.5, -0.1]} rotation={[0.3, 0, 0.2]}>
+        <cylinderGeometry args={[0.012, 0.012, 0.5, 6]} />
+        <meshStandardMaterial color="#333333" roughness={0.8} />
+      </mesh>
+    </group>
+  );
+}
+
 function Silla() {
-  const asientoGeo = useMemo(() => new THREE.BoxGeometry(0.5, 0.05, 0.5), []);
   const respaldoGeo = useMemo(() => new THREE.BoxGeometry(0.5, 0.6, 0.05), []);
-  const edgesAsiento = useMemo(() => new THREE.EdgesGeometry(respaldoGeo), [respaldoGeo]);
+  const edges = useMemo(() => new THREE.EdgesGeometry(respaldoGeo), [respaldoGeo]);
   return (
     <group position={[0, 0, -0.25]}>
-      <mesh geometry={asientoGeo} position={[0, 0.45, 0]}>
+      <mesh position={[0, 0.5, 0]} castShadow>
+        <boxGeometry args={[0.5, 0.05, 0.5]} />
         <meshStandardMaterial color="#1a1a2e" roughness={0.7} />
       </mesh>
-      <group position={[0, 0.75, -0.22]}>
-        <mesh geometry={respaldoGeo}>
+      <group position={[0, 0.82, -0.22]}>
+        <mesh geometry={respaldoGeo} castShadow>
           <meshStandardMaterial color="#1a1a2e" roughness={0.7} />
         </mesh>
-        <lineSegments geometry={edgesAsiento}>
+        <lineSegments geometry={edges}>
           <lineBasicMaterial color="#7c4dff" transparent opacity={0.4} />
         </lineSegments>
       </group>
@@ -218,8 +244,8 @@ function Silla() {
           [0.2, 0.2],
         ] as const
       ).map(([x, z], i) => (
-        <mesh key={i} position={[x, 0.22, z]}>
-          <cylinderGeometry args={[0.025, 0.025, 0.45, 8]} />
+        <mesh key={i} position={[x, 0.25, z]}>
+          <cylinderGeometry args={[0.025, 0.025, 0.5, 8]} />
           <meshStandardMaterial color="#0d0d14" />
         </mesh>
       ))}
@@ -230,21 +256,19 @@ function Silla() {
 function Estacion({ x, z }: { x: number; z: number }) {
   return (
     <group position={[x, 0, z]}>
-      {/* Mesa + monitor, delante del avatar (hacia la cámara) */}
       <group position={[0, 0, 0.5]}>
         <Mesa />
         <Monitor />
       </group>
-      {/* Silla, detrás del avatar */}
       <Silla />
       {/* Foco púrpura sobre el puesto */}
-      <pointLight position={[0, 2.3, 0.3]} intensity={0.4} distance={3} color="#7c4dff" />
+      <pointLight position={[0, 2.2, 0.3]} intensity={0.3} distance={2} color="#7c4dff" />
     </group>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Avatar low-poly tipo Sims con outfit ejecutivo
+// Avatar low-poly con outfit ejecutivo
 // ---------------------------------------------------------------------------
 
 function Avatar({
@@ -286,7 +310,6 @@ function Avatar({
 
     switch (agent.estadoLive) {
       case "llamando": {
-        // Camina por el pasillo entre filas
         const dir = Math.sin(t * 0.5 + fase);
         g.position.x = x + dir * 1.3;
         g.position.z = AISLE_Z;
@@ -300,7 +323,6 @@ function Avatar({
         break;
       }
       case "tramitando": {
-        // Sentado frente al monitor (Y bajada)
         g.position.set(x, -0.33, z - 0.1);
         g.rotation.y = 0;
         if (legL.current) legL.current.rotation.x = -1.4;
@@ -321,7 +343,6 @@ function Avatar({
         break;
       }
       default: {
-        // Disponible: de pie detrás de la mesa, respiración sutil
         g.position.x = x;
         g.position.z = z;
         g.position.y = Math.sin(t * 1.2 + fase) * 0.03;
@@ -365,9 +386,8 @@ function Avatar({
         </mesh>
       )}
 
-      {/* Piernas */}
       <group ref={legL} position={[-0.16, 0.78, 0]}>
-        <mesh position={[0, -0.39, 0]}>
+        <mesh position={[0, -0.39, 0]} castShadow>
           <cylinderGeometry args={[0.1, 0.09, 0.78, 12]} />
           <meshStandardMaterial color={piernaColor} roughness={0.7} />
         </mesh>
@@ -377,7 +397,7 @@ function Avatar({
         </mesh>
       </group>
       <group ref={legR} position={[0.16, 0.78, 0]}>
-        <mesh position={[0, -0.39, 0]}>
+        <mesh position={[0, -0.39, 0]} castShadow>
           <cylinderGeometry args={[0.1, 0.09, 0.78, 12]} />
           <meshStandardMaterial color={piernaColor} roughness={0.7} />
         </mesh>
@@ -388,13 +408,19 @@ function Avatar({
       </group>
 
       {fem && (
-        <mesh position={[0, 0.62, 0]}>
+        <mesh position={[0, 0.62, 0]} castShadow>
           <cylinderGeometry args={[0.22, 0.44, 0.5, 16]} />
           <meshStandardMaterial color={o.complemento} roughness={0.6} />
         </mesh>
       )}
 
-      <RoundedBox args={[0.62, 0.74, 0.36]} radius={0.08} smoothness={4} position={[0, 1.18, 0]}>
+      <RoundedBox
+        args={[0.62, 0.74, 0.36]}
+        radius={0.08}
+        smoothness={4}
+        position={[0, 1.18, 0]}
+        castShadow
+      >
         {traje}
       </RoundedBox>
 
@@ -406,7 +432,7 @@ function Avatar({
       )}
 
       <group ref={armL} position={[-0.4, 1.48, 0]}>
-        <mesh position={[0, -0.3, 0]}>
+        <mesh position={[0, -0.3, 0]} castShadow>
           <capsuleGeometry args={[0.08, 0.5, 4, 8]} />
           {traje}
         </mesh>
@@ -416,7 +442,7 @@ function Avatar({
         </mesh>
       </group>
       <group ref={armR} position={[0.4, 1.48, 0]}>
-        <mesh position={[0, -0.3, 0]}>
+        <mesh position={[0, -0.3, 0]} castShadow>
           <capsuleGeometry args={[0.08, 0.5, 4, 8]} />
           {traje}
         </mesh>
@@ -431,7 +457,7 @@ function Avatar({
         {piel}
       </mesh>
 
-      <mesh position={[0, 1.84, 0]}>
+      <mesh position={[0, 1.84, 0]} castShadow>
         <sphereGeometry args={[0.26, 24, 24]} />
         {piel}
       </mesh>
@@ -470,7 +496,6 @@ function Avatar({
       {agent.estadoLive === "celebrando" && <Confetti />}
       {esLider && <Corona />}
 
-      {/* Etiqueta con el nombre, siempre de cara a la cámara */}
       <Billboard position={[0, 2.55, 0]}>
         <SafeText
           fontSize={0.26}
@@ -488,112 +513,280 @@ function Avatar({
 }
 
 // ---------------------------------------------------------------------------
-// Paredes, suelo y pantalla central
+// Estructura de la sala: suelo, alfombra, paredes, techo, ventanas, logo
 // ---------------------------------------------------------------------------
 
-function Oficina({ ranking }: { ranking: AgenteRanked[] }) {
-  const top3 = ranking.slice(0, 3);
+function Suelo() {
   return (
     <>
-      {/* Pared trasera */}
-      <mesh position={[0, 3, -7]}>
-        <planeGeometry args={[15, 6]} />
-        <meshStandardMaterial color="#0e0e16" roughness={0.9} metalness={0.05} />
+      {/* Parquet de madera oscura */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -1.5]} receiveShadow>
+        <planeGeometry args={[18, 15]} />
+        <meshStandardMaterial color="#1a1208" roughness={0.9} metalness={0} />
       </mesh>
-      {/* Pared lateral izquierda */}
-      <mesh position={[-7.5, 3, 0]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[15, 6]} />
-        <meshStandardMaterial color="#0e0e16" roughness={0.9} metalness={0.05} />
+      {/* Alfombra central */}
+      <mesh position={[0, 0.015, -2.5]} receiveShadow>
+        <boxGeometry args={[10, 0.02, 6]} />
+        <meshStandardMaterial color="#1a1a2e" roughness={0.95} metalness={0} />
       </mesh>
+      <lineSegments position={[0, 0.03, -2.5]}>
+        <edgesGeometry args={[new THREE.BoxGeometry(10, 0.02, 6)]} />
+        <lineBasicMaterial color="#7c4dff" transparent opacity={0.5} />
+      </lineSegments>
+    </>
+  );
+}
 
-      {/* Logo WhiteMoon en la pared trasera */}
+// Pared de una sola cara con la normal hacia el interior (efecto casa de muñecas).
+function Pared({
+  position,
+  rotation,
+  args,
+}: {
+  position: [number, number, number];
+  rotation: [number, number, number];
+  args: [number, number];
+}) {
+  return (
+    <group>
+      <mesh position={position} rotation={rotation} receiveShadow>
+        <planeGeometry args={args} />
+        <meshStandardMaterial color="#0d0d18" roughness={0.95} metalness={0} />
+      </mesh>
+      {/* Rodapié */}
+      <mesh position={[position[0], 0.1, position[2]]} rotation={rotation}>
+        <planeGeometry args={[args[0], 0.2]} />
+        <meshStandardMaterial
+          color="#7c4dff"
+          transparent
+          opacity={0.4}
+          emissive="#7c4dff"
+          emissiveIntensity={0.3}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+function Ventana({ z }: { z: number }) {
+  return (
+    <group position={[ROOM.x - 0.05, 2, z]} rotation={[0, -Math.PI / 2, 0]}>
+      <mesh>
+        <planeGeometry args={[2.2, 1.8]} />
+        <meshStandardMaterial
+          color="#0a1628"
+          roughness={0.2}
+          metalness={0.6}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <lineSegments>
+        <edgesGeometry args={[new THREE.PlaneGeometry(2.2, 1.8)]} />
+        <lineBasicMaterial color="#cdd6e6" transparent opacity={0.5} />
+      </lineSegments>
+      {/* Cruceta */}
+      <mesh>
+        <boxGeometry args={[2.2, 0.04, 0.02]} />
+        <meshStandardMaterial color="#cdd6e6" transparent opacity={0.4} />
+      </mesh>
+      <mesh>
+        <boxGeometry args={[0.04, 1.8, 0.02]} />
+        <meshStandardMaterial color="#cdd6e6" transparent opacity={0.4} />
+      </mesh>
+    </group>
+  );
+}
+
+function PantallaCentral({ ranking }: { ranking: AgenteRanked[] }) {
+  const top3 = ranking.slice(0, 3);
+  return (
+    <group position={[0, 2.3, ROOM.zBack + 0.12]}>
+      {/* Logo WhiteMoon, centrado y arriba */}
       <SafeText
-        position={[-4.6, 4.6, -6.9]}
-        fontSize={0.6}
+        position={[0, 1.45, 0]}
+        fontSize={0.55}
         color="#7c4dff"
-        anchorX="left"
+        anchorX="center"
         anchorY="middle"
-        outlineWidth={0.01}
+        outlineWidth={0.012}
         outlineColor="#08080d"
       >
         WhiteMoon
       </SafeText>
 
-      {/* Pantalla central de clasificación */}
-      <group position={[0, 2.6, -6.85]}>
-        {/* Marco emisivo púrpura */}
-        <mesh position={[0, 0, -0.05]}>
-          <boxGeometry args={[3.2, 2.2, 0.08]} />
-          <meshStandardMaterial
-            color="#7c4dff"
-            emissive="#7c4dff"
-            emissiveIntensity={1.3}
-          />
-        </mesh>
-        {/* Panel de la pantalla */}
-        <mesh>
-          <boxGeometry args={[3, 2, 0.1]} />
-          <meshStandardMaterial color="#111118" roughness={0.4} metalness={0.3} />
-        </mesh>
-        {/* Título */}
+      {/* Marco emisivo púrpura */}
+      <mesh position={[0, 0, -0.05]}>
+        <boxGeometry args={[3.2, 2.2, 0.08]} />
+        <meshStandardMaterial color="#7c4dff" emissive="#7c4dff" emissiveIntensity={1.3} />
+      </mesh>
+      {/* Panel */}
+      <mesh>
+        <boxGeometry args={[3, 2, 0.1]} />
+        <meshStandardMaterial color="#111118" roughness={0.4} metalness={0.3} />
+      </mesh>
+      <SafeText
+        position={[0, 0.72, 0.07]}
+        fontSize={0.22}
+        color="#9d70ff"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={2.6}
+        textAlign="center"
+      >
+        CLASIFICACIÓN EN VIVO
+      </SafeText>
+      {top3.map((a, i) => (
         <SafeText
-          position={[0, 0.72, 0.07]}
-          fontSize={0.22}
-          color="#9d70ff"
+          key={a.id}
+          position={[0, 0.2 - i * 0.45, 0.07]}
+          fontSize={0.2}
+          color={a.color}
           anchorX="center"
           anchorY="middle"
-          maxWidth={2.6}
-          textAlign="center"
         >
-          CLASIFICACIÓN EN VIVO
+          {`${i + 1}.  ${a.nombre}   ${a.score}`}
         </SafeText>
-        {/* Top 3 en directo */}
-        {top3.map((a, i) => (
-          <SafeText
-            key={a.id}
-            position={[0, 0.2 - i * 0.45, 0.07]}
-            fontSize={0.2}
-            color={a.color}
-            anchorX="center"
-            anchorY="middle"
-          >
-            {`${i + 1}.  ${a.nombre}   ${a.score}`}
-          </SafeText>
-        ))}
-      </group>
+      ))}
+    </group>
+  );
+}
 
-      {/* Suelo: plano con leve reflejo + rejilla púrpura */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, -2]} receiveShadow>
-        <planeGeometry args={[40, 40]} />
-        <meshStandardMaterial color="#0a0a12" roughness={0.8} metalness={0.1} />
+function Sala({ ranking }: { ranking: AgenteRanked[] }) {
+  const { x, zBack, zFront, h } = ROOM;
+  const depth = zFront - zBack;
+  const width = x * 2;
+  const cz = (zBack + zFront) / 2;
+
+  return (
+    <>
+      <Suelo />
+
+      {/* Paredes (normal hacia dentro) + techo */}
+      <Pared position={[0, h / 2, zBack]} rotation={[0, 0, 0]} args={[width, h]} />
+      <Pared position={[0, h / 2, zFront]} rotation={[0, Math.PI, 0]} args={[width, h]} />
+      <Pared position={[-x, h / 2, cz]} rotation={[0, Math.PI / 2, 0]} args={[depth, h]} />
+      <Pared position={[x, h / 2, cz]} rotation={[0, -Math.PI / 2, 0]} args={[depth, h]} />
+      {/* Techo (normal hacia abajo) */}
+      <mesh position={[0, h, cz]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[width, depth]} />
+        <meshStandardMaterial color="#0b0b14" roughness={1} metalness={0} />
       </mesh>
-      <Grid
-        position={[0, 0, -2]}
-        args={[40, 40]}
-        cellSize={0.6}
-        cellThickness={0.6}
-        cellColor="#1c1630"
-        sectionSize={3}
-        sectionThickness={1}
-        sectionColor="#7c4dff"
-        fadeDistance={26}
-        fadeStrength={1.2}
-        infiniteGrid
-      />
-      <ContactShadows
-        position={[0, 0.01, -3]}
-        opacity={0.5}
-        scale={28}
-        blur={2.6}
-        far={6}
-        color="#000000"
-      />
+
+      <Ventana z={-2} />
+      <Ventana z={-5} />
+
+      <PantallaCentral ranking={ranking} />
     </>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Escena completa dentro del Canvas
+// Mobiliario decorativo: plantas, sofá, estantería, lámpara
+// ---------------------------------------------------------------------------
+
+function Planta({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.2, 0]} castShadow>
+        <cylinderGeometry args={[0.25, 0.2, 0.4, 12]} />
+        <meshStandardMaterial color="#2d1f0e" roughness={0.8} />
+      </mesh>
+      <mesh position={[0, 0.7, 0]} castShadow>
+        <cylinderGeometry args={[0.05, 0.06, 0.7, 8]} />
+        <meshStandardMaterial color="#3d2b0f" roughness={0.8} />
+      </mesh>
+      <mesh position={[0, 1.15, 0]} castShadow>
+        <sphereGeometry args={[0.4, 16, 16]} />
+        <meshStandardMaterial color="#1a4a1a" roughness={0.9} />
+      </mesh>
+      {[
+        [0, 1.45, 0],
+        [-0.25, 1.25, 0.1],
+        [0.22, 1.3, -0.12],
+      ].map((p, i) => (
+        <mesh key={i} position={p as [number, number, number]} castShadow>
+          <coneGeometry args={[0.12, 0.35, 6]} />
+          <meshStandardMaterial color="#2d6b2d" roughness={0.9} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function Sofa({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position} rotation={[0, Math.PI / 2, 0]}>
+      <mesh position={[0, 0.25, 0]} castShadow receiveShadow>
+        <boxGeometry args={[3, 0.4, 0.9]} />
+        <meshStandardMaterial color="#1a1a3e" roughness={0.8} />
+      </mesh>
+      <mesh position={[0, 0.6, -0.38]} castShadow>
+        <boxGeometry args={[3, 0.6, 0.18]} />
+        <meshStandardMaterial color="#1a1a3e" roughness={0.8} />
+      </mesh>
+      {[-0.95, 0, 0.95].map((cx, i) => (
+        <mesh key={i} position={[cx, 0.5, 0.05]} castShadow>
+          <boxGeometry args={[0.85, 0.22, 0.7]} />
+          <meshStandardMaterial color="#7c4dff" roughness={0.7} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function Estanteria({ position }: { position: [number, number, number] }) {
+  const baldas = [0.5, 1.2, 1.9, 2.6];
+  return (
+    <group position={position} rotation={[0, Math.PI / 2, 0]}>
+      <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
+        <boxGeometry args={[2.4, 3, 0.4]} />
+        <meshStandardMaterial color="#13131e" roughness={0.6} />
+      </mesh>
+      {baldas.map((y, bi) =>
+        Array.from({ length: 6 }).map((_, i) => (
+          <mesh
+            key={`${bi}-${i}`}
+            position={[-1 + i * 0.36, y + 0.18, 0.05]}
+            castShadow
+          >
+            <boxGeometry args={[0.12, 0.32, 0.24]} />
+            <meshStandardMaterial
+              color={LIBRO_COLORES[(bi + i) % LIBRO_COLORES.length]}
+              roughness={0.7}
+            />
+          </mesh>
+        )),
+      )}
+    </group>
+  );
+}
+
+function LamparaPie({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.05, 0]}>
+        <cylinderGeometry args={[0.22, 0.22, 0.06, 16]} />
+        <meshStandardMaterial color="#15151c" metalness={0.5} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 1.1, 0]} castShadow>
+        <cylinderGeometry args={[0.03, 0.03, 2.1, 8]} />
+        <meshStandardMaterial color="#15151c" metalness={0.6} roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 2.2, 0]}>
+        <sphereGeometry args={[0.22, 16, 16]} />
+        <meshStandardMaterial
+          color="#fff1c2"
+          emissive="#ffcf6b"
+          emissiveIntensity={1.4}
+        />
+      </mesh>
+      <pointLight position={[0, 2.2, 0]} intensity={0.9} distance={6} color="#ffd98a" />
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Escena dentro del Canvas
 // ---------------------------------------------------------------------------
 
 function Escena({
@@ -609,36 +802,63 @@ function Escena({
 
   return (
     <>
-      <color attach="background" args={["#08080d"]} />
-      <fog attach="fog" args={["#08080d", 12, 30]} />
+      <color attach="background" args={["#06060b"]} />
+      <fog attach="fog" args={["#06060b", 16, 38]} />
 
-      <PerspectiveCamera makeDefault position={[0, 5, 9.5]} fov={45} />
+      <PerspectiveCamera makeDefault position={[0, 6, 10]} fov={45} />
       <OrbitControls
         makeDefault
         enablePan={false}
-        minDistance={6}
-        maxDistance={16}
-        minPolarAngle={0.5}
-        maxPolarAngle={1.45}
-        target={[0, 1.2, -3.3]}
+        minDistance={4}
+        maxDistance={18}
+        maxPolarAngle={Math.PI / 2.2}
+        target={[0, 1.2, -2.5]}
         enableDamping
       />
 
-      {/* Iluminación de oficina, dramática */}
-      <ambientLight intensity={0.2} color="#8a7fff" />
-      <spotLight
-        position={[0, 13, 1]}
-        angle={0.7}
-        penumbra={0.6}
-        intensity={2.4}
+      {/* Iluminación de oficina moderna */}
+      <ambientLight intensity={0.15} color="#9a93c8" />
+      {/* Paneles LED del techo */}
+      {[0.5, -3, -6].map((z, i) => (
+        <rectAreaLight
+          key={i}
+          position={[0, ROOM.h - 0.1, z]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          width={5}
+          height={2}
+          intensity={2}
+          color="#fff8e7"
+        />
+      ))}
+      {/* Luz direccional que proyecta sombras */}
+      <directionalLight
+        castShadow
+        position={[5, 9, 4]}
+        intensity={0.7}
         color="#ffffff"
-        distance={40}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-near={1}
+        shadow-camera-far={30}
+        shadow-camera-left={-12}
+        shadow-camera-right={12}
+        shadow-camera-top={12}
+        shadow-camera-bottom={-12}
+        shadow-bias={-0.0004}
       />
-      <directionalLight position={[4, 8, 6]} intensity={0.35} color="#cfc6ff" />
 
-      <Oficina ranking={ranking} />
+      <Sala ranking={ranking} />
 
-      {/* Mobiliario fijo de cada puesto */}
+      {/* Plantas en las esquinas */}
+      <Planta position={[-6, 0, -6.3]} />
+      <Planta position={[6, 0, -6.3]} />
+      <Planta position={[6, 0, 3]} />
+
+      {/* Zona de espera contra la pared izquierda */}
+      <Sofa position={[-6.1, 0, 0.5]} />
+      <LamparaPie position={[-5.2, 0, 2.4]} />
+      <Estanteria position={[-6.7, 0, -4]} />
+
+      {/* Mobiliario de cada puesto */}
       {AGENTES.map((a) => {
         const s = STATIONS[a.id];
         return <Estacion key={a.id} x={s.x} z={s.z} />;
@@ -659,7 +879,7 @@ function Escena({
 }
 
 // ---------------------------------------------------------------------------
-// Componente público: el Canvas con la oficina 3D
+// Componente público
 // ---------------------------------------------------------------------------
 
 export function AgentesOffice3D({
@@ -673,8 +893,8 @@ export function AgentesOffice3D({
 }) {
   return (
     <Canvas
+      shadows={{ type: THREE.PCFShadowMap }}
       dpr={[1, 2]}
-      shadows={false}
       gl={{ antialias: true, powerPreference: "high-performance" }}
       onPointerMissed={() => onSelect(null)}
     >
