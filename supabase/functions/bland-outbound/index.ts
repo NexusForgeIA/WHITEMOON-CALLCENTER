@@ -18,7 +18,8 @@ const CONTEXTO = `CONTEXTO WHITEMOON (lo conoces y puedes mencionarlo):
 REGLAS:
 - Máximo 2 minutos. Tono alegre y empático. Habla siempre en español de España.
 - Detecta el dolor del negocio antes de vender. Maneja las objeciones con empatía, nunca a la defensiva.
-- El cierre siempre es una cita en cal.com/whitemoon.`;
+- El cierre siempre es una cita en cal.com/whitemoon.
+- IMPORTANTE: Solo llamas en horario comercial español L-V 9:00-20:00. Si el prospecto sugiere llamar en otro momento, anótalo y confirma que le llamarás entonces.`;
 
 // Guiones comerciales por agente. `voz` es el Voice ID de ElevenLabs (string),
 // que Bland acepta directamente en el campo `voice` de POST /v1/calls.
@@ -199,6 +200,21 @@ CIERRE:
   }
 };
 
+// Horario comercial permitido (hora de Madrid): L-V 9:00-20:00 para todos los
+// sectores; nunca fines de semana. Intl con timeZone gestiona el horario de verano.
+function dentroDeHorario(): boolean {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Madrid",
+    weekday: "short",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const dia = parts.find((p) => p.type === "weekday")?.value ?? "";
+  const hora = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
+  const finde = dia === "Sat" || dia === "Sun";
+  return !finde && hora >= 9 && hora < 20;
+}
+
 Deno.serve(async (req: Request) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -219,6 +235,13 @@ Deno.serve(async (req: Request) => {
     if (!config) {
       return new Response(JSON.stringify({ error: "agente no válido" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (!dentroDeHorario()) {
+      return new Response(
+        JSON.stringify({ error: "Fuera de horario. Llamadas permitidas L-V 9:00-20:00 (hora Madrid)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
