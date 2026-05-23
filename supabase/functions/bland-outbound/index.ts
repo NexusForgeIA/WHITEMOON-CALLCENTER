@@ -6,11 +6,12 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const WEBHOOK_URL = `${SUPABASE_URL}/functions/v1/bland-webhook`;
 
-// Guiones comerciales por agente, idénticos a la versión desplegada.
+// Guiones comerciales por agente. `voz` es el Voice ID de ElevenLabs (string),
+// que Bland acepta directamente en el campo `voice` de POST /v1/calls.
 const AGENTES: Record<string, { nombre: string; prompt: string; voz: string }> = {
   dental: {
     nombre: "Marcos",
-    voz: "matt",
+    voz: "vLKc7bavj1pLAULAyi3r",
     prompt: `Eres Marcos, asesor comercial de WhiteMoon Agencia IA. Llamas a clínicas dentales para ofrecerles un Agente IA que atiende pacientes 24/7, cualifica consultas y agenda citas automáticamente.
 
 OBJETIVO: Conseguir una reunión de 15 minutos con el responsable.
@@ -33,7 +34,7 @@ REGLAS:
   },
   gestoria: {
     nombre: "Laura",
-    voz: "june",
+    voz: "1eHrpOW5l98cxiSRjbzJ",
     prompt: `Eres Laura, asesora comercial de WhiteMoon Agencia IA. Llamas a gestorías y asesorías para ofrecerles un Agente IA que atiende consultas fiscales y laborales 24/7.
 
 OBJETIVO: Conseguir una reunión de 15 minutos con el responsable.
@@ -52,7 +53,7 @@ REGLAS:
   },
   taller: {
     nombre: "Diego",
-    voz: "matt",
+    voz: "HIYif4jehvc9P9A8DYbX",
     prompt: `Eres Diego, asesor comercial de WhiteMoon Agencia IA. Llamas a talleres mecánicos y centros de automoción.
 
 OBJETIVO: Conseguir una reunión de 15 minutos.
@@ -70,7 +71,7 @@ REGLAS:
   },
   estetica: {
     nombre: "Ana",
-    voz: "june",
+    voz: "dNjJKg63Fr5AXwIdkATa",
     prompt: `Eres Ana, asesora comercial de WhiteMoon Agencia IA. Llamas a centros de estética y belleza.
 
 OBJETIVO: Conseguir una reunión de 15 minutos.
@@ -88,7 +89,7 @@ REGLAS:
   },
   inmobiliaria: {
     nombre: "Carlos",
-    voz: "matt",
+    voz: "eEyWolF7iBpMA65GbtAm",
     prompt: `Eres Carlos, asesor comercial de WhiteMoon Agencia IA. Llamas a agencias inmobiliarias para ofrecerles un Agente IA que atiende a compradores e inquilinos 24/7, cualifica leads y agenda visitas automáticamente.
 
 OBJETIVO: Conseguir una reunión de 15 minutos con el responsable.
@@ -109,7 +110,7 @@ REGLAS:
   },
   hosteleria: {
     nombre: "Sara",
-    voz: "june",
+    voz: "ERYLdjEaddaiN9sDjaMX",
     prompt: `Eres Sara, asesora comercial de WhiteMoon Agencia IA. Llamas a restaurantes y negocios de hostelería para ofrecerles un Agente IA que gestiona reservas y atiende consultas 24/7.
 
 OBJETIVO: Conseguir una reunión de 15 minutos con el responsable.
