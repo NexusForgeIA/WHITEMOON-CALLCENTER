@@ -15,10 +15,10 @@ const ESTADO_ANIM: Record<EstadoAnim, { label: string; color: string }> = {
 const MEDALLAS = ["🥇", "🥈", "🥉"];
 
 // ---------------------------------------------------------------------------
-// Overlay: pantalla de clasificación en vivo
+// Barra superior: clasificación en vivo (compacta, sin tapar la escena 3D)
 // ---------------------------------------------------------------------------
 
-function PantallaRanking({
+function BarraRanking({
   ranking,
   selected,
   onSelect,
@@ -27,65 +27,52 @@ function PantallaRanking({
   selected: Agente | null;
   onSelect: (id: Agente) => void;
 }) {
-  const maxScore = Math.max(...ranking.map((r) => r.score), 1);
-
   return (
-    <div className="pointer-events-auto absolute left-3 top-3 w-[clamp(240px,32vw,320px)] rounded-xl border border-p/30 bg-bg/70 p-4 shadow-[0_0_40px_-12px_rgba(124,77,255,0.5)] backdrop-blur-md">
-      <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-border bg-card/60 px-2 py-1.5 backdrop-blur-sm">
+      <div className="flex shrink-0 items-center gap-1.5 pl-1 pr-2">
         <span className="relative flex h-2 w-2">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-g opacity-75" />
           <span className="relative inline-flex h-2 w-2 rounded-full bg-g" />
         </span>
-        <h2 className="text-sm font-semibold tracking-tight">
-          Clasificación en vivo
-        </h2>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+          En vivo
+        </span>
       </div>
 
-      <ol className="mt-3 space-y-1.5">
-        {ranking.map((a, i) => (
-          <li key={a.id}>
-            <button
-              type="button"
-              onClick={() => onSelect(a.id)}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors ${
-                selected === a.id ? "bg-white/[0.07]" : "hover:bg-white/[0.04]"
-              }`}
-            >
-              <span className="w-5 shrink-0 text-center text-sm tabular-nums">
-                {i < 3 ? MEDALLAS[i] : a.posicion}
-              </span>
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: a.color }}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-sm font-medium">{a.nombre}</span>
-                  <span className="shrink-0 text-xs tabular-nums text-muted">
-                    {a.score}
-                  </span>
-                </div>
-                <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${(a.score / maxScore) * 100}%`,
-                      backgroundColor: a.color,
-                    }}
-                  />
-                </div>
-              </div>
-            </button>
-          </li>
-        ))}
-      </ol>
+      {ranking.map((a, i) => {
+        const activo = selected === a.id;
+        return (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => onSelect(a.id)}
+            className={`flex shrink-0 items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors ${
+              activo ? "bg-white/[0.07]" : "hover:bg-white/[0.04]"
+            }`}
+          >
+            <span className="w-4 text-center text-xs tabular-nums">
+              {i < 3 ? MEDALLAS[i] : a.posicion}
+            </span>
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: a.color }}
+            />
+            <span className="text-sm font-medium leading-none">{a.nombre}</span>
+            <span className="text-xs tabular-nums text-muted">{a.score}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Leyenda de estados (centrada, debajo del Canvas)
+// ---------------------------------------------------------------------------
+
 function LeyendaEstados() {
   return (
-    <div className="pointer-events-none absolute bottom-3 right-3 flex flex-wrap justify-end gap-x-3 gap-y-1 rounded-lg border border-border bg-bg/60 px-3 py-2 text-[11px] backdrop-blur-md">
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px]">
       {(Object.keys(ESTADO_ANIM) as EstadoAnim[]).map((e) => (
         <span key={e} className="flex items-center gap-1.5 text-muted">
           <span
@@ -100,28 +87,86 @@ function LeyendaEstados() {
 }
 
 // ---------------------------------------------------------------------------
-// Panel lateral con stats por agente
+// Panel de stats: fila horizontal de 6 cards (una por agente)
 // ---------------------------------------------------------------------------
 
-function StatMini({
-  valor,
-  etiqueta,
-  color,
+function CardAgente({
+  agente,
+  activo,
+  onSelect,
 }: {
-  valor: number;
-  etiqueta: string;
-  color?: string;
+  agente: AgenteRanked;
+  activo: boolean;
+  onSelect: (id: Agente) => void;
 }) {
+  const est = ESTADO_ANIM[agente.estadoLive];
   return (
-    <div className="rounded-md bg-white/[0.03] py-1.5 text-center">
-      <p
-        className="text-base font-semibold tabular-nums"
-        style={color ? { color } : undefined}
+    <button
+      type="button"
+      onClick={() => onSelect(agente.id)}
+      className="rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-p/40"
+      style={{ borderColor: activo ? `${agente.color}80` : undefined }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-base"
+          style={{ backgroundColor: `${agente.color}1f` }}
+        >
+          {agente.emoji}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1">
+            <span className="truncate text-sm font-medium leading-tight">
+              {agente.nombre}
+            </span>
+            <span className="shrink-0 text-[10px] text-muted">
+              #{agente.posicion}
+            </span>
+          </div>
+          <p className="truncate text-[11px] text-muted">{agente.sector}</p>
+        </div>
+      </div>
+
+      <span
+        className="mt-2.5 flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px]"
+        style={{ backgroundColor: `${est.color}1f`, color: est.color }}
       >
-        {valor}
-      </p>
-      <p className="text-[10px] uppercase tracking-wider text-muted">{etiqueta}</p>
-    </div>
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: est.color }}
+        />
+        {est.label}
+      </span>
+
+      <div className="mt-2.5 flex items-end justify-between">
+        <div>
+          <p className="text-xl font-semibold leading-none tabular-nums">
+            {agente.score}
+          </p>
+          <p className="mt-1 text-[10px] uppercase tracking-wider text-muted">
+            Score
+          </p>
+        </div>
+        <div className="flex gap-3 text-right">
+          <div>
+            <p className="text-sm font-semibold leading-none tabular-nums">
+              {agente.stats.llamadas}
+            </p>
+            <p className="mt-1 text-[10px] uppercase tracking-wider text-muted">
+              Llam.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold leading-none tabular-nums text-g">
+              {agente.stats.citas}
+            </p>
+            <p className="mt-1 text-[10px] uppercase tracking-wider text-muted">
+              Citas
+            </p>
+          </div>
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -135,62 +180,21 @@ function PanelStats({
   onSelect: (id: Agente) => void;
 }) {
   return (
-    <aside className="space-y-3">
-      {ranking.map((a) => {
-        const est = ESTADO_ANIM[a.estadoLive];
-        const activo = selected === a.id;
-        return (
-          <button
-            key={a.id}
-            type="button"
-            onClick={() => onSelect(a.id)}
-            className={`w-full rounded-xl border bg-card/50 p-4 text-left transition-colors ${
-              activo ? "bg-card" : "hover:bg-card"
-            }`}
-            style={{ borderColor: activo ? `${a.color}80` : undefined }}
-          >
-            <div className="flex items-center gap-3">
-              <span
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-lg"
-                style={{ backgroundColor: `${a.color}1f` }}
-              >
-                {a.emoji}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate font-medium leading-tight">
-                    {a.nombre}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted">#{a.posicion}</span>
-                </div>
-                <p className="truncate text-xs text-muted">{a.sector}</p>
-              </div>
-              <span
-                className="flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px]"
-                style={{ backgroundColor: `${est.color}1f`, color: est.color }}
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: est.color }}
-                />
-                {est.label}
-              </span>
-            </div>
-            <div className="mt-3 grid grid-cols-4 gap-1.5">
-              <StatMini valor={a.stats.llamadas} etiqueta="Llam." />
-              <StatMini valor={a.stats.contactos} etiqueta="Cont." color="#4da8ff" />
-              <StatMini valor={a.stats.citas} etiqueta="Citas" color="#00d4aa" />
-              <StatMini valor={a.stats.cierres} etiqueta="Cierres" color="#ffce54" />
-            </div>
-          </button>
-        );
-      })}
-    </aside>
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      {ranking.map((a) => (
+        <CardAgente
+          key={a.id}
+          agente={a}
+          activo={selected === a.id}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Vista principal: oficina 3D + overlays
+// Vista principal: dos bloques verticales (oficina 3D arriba, stats abajo)
 // ---------------------------------------------------------------------------
 
 export function AgentesView({
@@ -207,8 +211,10 @@ export function AgentesView({
   useEffect(() => setMounted(true), []);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-      <div className="relative h-[clamp(440px,62vh,680px)] overflow-hidden rounded-2xl border border-border bg-card/30">
+    <div className="space-y-4">
+      <BarraRanking ranking={ranking} selected={selected} onSelect={setSelected} />
+
+      <div className="h-[clamp(460px,60vh,820px)] w-full overflow-hidden rounded-2xl border border-border bg-card/30">
         {mounted ? (
           <AgentesOffice3D
             ranking={ranking}
@@ -220,14 +226,9 @@ export function AgentesView({
             Cargando oficina 3D…
           </div>
         )}
-
-        <PantallaRanking
-          ranking={ranking}
-          selected={selected}
-          onSelect={setSelected}
-        />
-        <LeyendaEstados />
       </div>
+
+      <LeyendaEstados />
 
       <PanelStats ranking={ranking} selected={selected} onSelect={setSelected} />
     </div>
