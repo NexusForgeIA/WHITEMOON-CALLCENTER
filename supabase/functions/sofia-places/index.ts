@@ -42,17 +42,63 @@ function normTel(s: string | null | undefined): string {
   return (s || "").replace(/\D/g, "").slice(-9);
 }
 
-/** Extrae el primer array JSON de la respuesta de Claude (tolera vallas ```). */
+/**
+ * Extrae el array JSON de la respuesta de Claude.
+ * Tolerante a truncado: si la respuesta se corta (p. ej. por max_tokens) y el
+ * array no cierra con `]`, rescata los objetos `{...}` completos y bien formados.
+ */
 function parseJsonArray(text: string): Array<Record<string, unknown>> {
-  try {
-    const limpio = text.replace(/```json/gi, "").replace(/```/g, "").trim();
-    const ini = limpio.indexOf("[");
-    const fin = limpio.lastIndexOf("]");
-    if (ini === -1 || fin === -1) return [];
-    return JSON.parse(limpio.slice(ini, fin + 1));
-  } catch {
-    return [];
+  const limpio = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const ini = limpio.indexOf("[");
+  if (ini === -1) return [];
+
+  // 1) Intento directo: JSON completo y válido.
+  const fin = limpio.lastIndexOf("]");
+  if (fin > ini) {
+    try {
+      const arr = JSON.parse(limpio.slice(ini, fin + 1));
+      if (Array.isArray(arr)) return arr;
+    } catch {
+      // truncado o inválido → pasa al rescate por objetos
+    }
   }
+
+  // 2) Rescate tolerante: extrae objetos {...} balanceados completos, ignorando
+  //    cualquier objeto final cortado a medias y el `]` ausente.
+  const objetos: Array<Record<string, unknown>> = [];
+  const cuerpo = limpio.slice(ini + 1);
+  let depth = 0;
+  let start = -1;
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < cuerpo.length; i++) {
+    const ch = cuerpo[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = true;
+    } else if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      if (depth > 0) {
+        depth--;
+        if (depth === 0 && start !== -1) {
+          try {
+            objetos.push(JSON.parse(cuerpo.slice(start, i + 1)));
+          } catch {
+            // objeto mal formado: se ignora
+          }
+          start = -1;
+        }
+      }
+    }
+  }
+  return objetos;
 }
 
 interface Candidato {
@@ -166,8 +212,9 @@ Deno.serve(async (req: Request) => {
         max_tokens: 400,
         system:
           `Eres Sofía, directora del Call Center IA de WhiteMoon Agencia IA en Majadahonda. ` +
-          `Analiza estos negocios del sector ${sector} y devuelve SOLO JSON array sin texto extra: ` +
-          `[{id, vale_la_pena: bool, dolor: string, prioridad: 1-3}]`,
+          `Analiza estos negocios del sector ${sector}. ` +
+          `Devuelve SOLO JSON minificado sin espacios ni saltos de línea. Sin texto extra. ` +
+          `Formato: [{"id":0,"vale_la_pena":true,"dolor":"texto breve","prioridad":1}] (prioridad 1-3).`,
         messages: [{ role: "user", content: JSON.stringify(entrada) }],
       }),
     });
@@ -176,7 +223,8 @@ Deno.serve(async (req: Request) => {
     if (!claudeRes.ok) {
       return json({ error: "Error Claude", details: claudeData }, 502);
     }
-    const analisis = parseJsonArray(claudeData.content?.[0]?.text ?? "[]");
+    const claudeText = claudeData.content?.[0]?.text ?? "";
+    const analisis = parseJsonArray(claudeText);
     const porId = new Map(analisis.map((a) => [Number(a.id), a]));
 
     // -- PASO 4: respuesta (solo vale_la_pena = true) ------------------------
