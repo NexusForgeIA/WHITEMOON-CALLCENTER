@@ -5,6 +5,7 @@ export function KpiCard({
   value,
   icon: Icon,
   accent,
+  valueColor,
   hint,
   loading,
 }: {
@@ -12,6 +13,8 @@ export function KpiCard({
   value: string | number;
   icon: LucideIcon;
   accent?: string;
+  /** Color del número principal (p. ej. semáforo de saldo). Por defecto hereda. */
+  valueColor?: string;
   hint?: string;
   loading?: boolean;
 }) {
@@ -29,7 +32,10 @@ export function KpiCard({
       {loading ? (
         <div className="mt-3 h-9 w-16 animate-pulse rounded-md bg-white/[0.06]" />
       ) : (
-        <p className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+        <p
+          className="mt-3 text-3xl font-semibold tracking-tight tabular-nums"
+          style={valueColor ? { color: valueColor } : undefined}
+        >
           {value}
         </p>
       )}

@@ -2,9 +2,11 @@ import {
   Phone,
   PhoneCall,
   CalendarCheck,
+  CalendarRange,
   TrendingUp,
   ListChecks,
   Timer,
+  Wallet,
 } from "lucide-react";
 import { createServerClient } from "@/lib/supabase-server";
 import { PageHeader } from "@/components/page-header";
@@ -12,6 +14,7 @@ import { KpiCard } from "@/components/kpi-card";
 import { AGENTES } from "@/lib/agentes";
 import { PIPELINE_ORDER, PIPELINE_ESTADO } from "@/lib/labels";
 import { formatDuration, formatPercent } from "@/lib/format";
+import { getBlandBalance, colorSaldo, saldoCritico } from "@/lib/bland";
 import type { Agente, CallEstado, PipelineEstado } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +32,7 @@ const CONTACTADAS: CallEstado[] = ["contestada", "completada"];
 
 export default async function DashboardPage() {
   const supabase = createServerClient();
-  const [callsRes, prospRes] = await Promise.all([
+  const [callsRes, prospRes, credito] = await Promise.all([
     supabase
       .from("call_center_calls")
       .select(
@@ -40,6 +43,7 @@ export default async function DashboardPage() {
       .from("call_center_prospectos")
       .select("*", { count: "exact", head: true })
       .eq("estado", "pendiente"),
+    getBlandBalance(),
   ]);
 
   if (callsRes.error) {
@@ -62,8 +66,15 @@ export default async function DashboardPage() {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
+  // Inicio de la semana actual (lunes 00:00).
+  const weekStart = new Date(todayStart);
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+
   const total = rows.length;
   const hoy = rows.filter((c) => new Date(c.created_at) >= todayStart).length;
+  const estaSemana = rows.filter(
+    (c) => new Date(c.created_at) >= weekStart,
+  ).length;
   const citas = rows.filter((c) => c.cita_agendada).length;
   const contactadas = rows.filter((c) => CONTACTADAS.includes(c.estado)).length;
   const conDuracion = rows.filter(
@@ -90,6 +101,15 @@ export default async function DashboardPage() {
   }));
   const maxAgente = Math.max(1, ...porAgente.map((a) => a.count));
 
+  // Saldo Bland: color semáforo, etiqueta y minutos estimados.
+  const saldoColor = credito.saldo !== null ? colorSaldo(credito.saldo) : undefined;
+  const saldoLabel = credito.saldo !== null ? `$${credito.saldo.toFixed(2)}` : "—";
+  const saldoHint =
+    credito.saldo !== null
+      ? `~${credito.minutos} min disponibles`
+      : (credito.error ?? "Sin datos de Bland");
+  const mostrarBanner = credito.saldo !== null && saldoCritico(credito.saldo);
+
   return (
     <>
       <PageHeader
@@ -97,9 +117,27 @@ export default async function DashboardPage() {
         subtitle="Resumen general del call center IA"
       />
 
+      {/* Aviso de crédito Bland bajo */}
+      {mostrarBanner && (
+        <div className="mb-6 flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-xl border border-[#ff4444]/40 bg-[#ff4444]/10 px-4 py-3 text-sm font-medium text-[#ff4444]">
+          <span>
+            ⚠️ Crédito Bland bajo (${credito.saldo!.toFixed(2)}) —
+          </span>
+          <a
+            href="https://app.bland.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:opacity-80"
+          >
+            Recarga en app.bland.ai
+          </a>
+        </div>
+      )}
+
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
         <KpiCard label="Llamadas hoy" value={hoy} icon={Phone} />
+        <KpiCard label="Esta semana" value={estaSemana} icon={CalendarRange} />
         <KpiCard label="Total llamadas" value={total} icon={PhoneCall} />
         <KpiCard
           label="Citas agendadas"
@@ -124,6 +162,14 @@ export default async function DashboardPage() {
           value={prospectosPendientes}
           icon={ListChecks}
           accent="#ffa94d"
+        />
+        <KpiCard
+          label="Crédito Bland"
+          value={saldoLabel}
+          valueColor={saldoColor}
+          accent={saldoColor}
+          hint={saldoHint}
+          icon={Wallet}
         />
       </div>
 
