@@ -22,7 +22,7 @@ const COSTE_POR_MIN = 0.125;
 const DUR_MIN_DEFECTO = 2;
 // Valor estimado de una cita agendada (USD). NO sale de la BD (no hay datos de
 // ingresos): es un supuesto para estimar el ROI. Ajusta según tu cierre real.
-const VALOR_POR_CITA = 50;
+const VALOR_POR_CITA = 500;
 
 const CONTACTADAS: CallEstado[] = ["contestada", "completada"];
 
