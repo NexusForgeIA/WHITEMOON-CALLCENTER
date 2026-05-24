@@ -30,12 +30,6 @@ export async function POST(req: Request) {
 
   try {
     const supabase = createServerClient();
-    // TEMP debug: diagnóstico de RLS / env en Render.
-    console.log("SERVICE_KEY exists:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-    console.log(
-      "SUPABASE_URL:",
-      process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
-    );
     const { data, error } = await supabase
       .from("call_center_prospectos")
       .insert({
