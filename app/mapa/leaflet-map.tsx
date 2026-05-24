@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   MapContainer,
   TileLayer,
   Marker,
   Popup,
+  useMap,
   useMapEvents,
 } from "react-leaflet";
 import L from "leaflet";
@@ -66,11 +68,21 @@ function MapEvents({
   return null;
 }
 
+/** Recentra el mapa cuando cambia `target` (selección de zona/ciudad). */
+function Recenter({ target }: { target: { lat: number; lng: number } | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (target) map.setView([target.lat, target.lng], 13, { animate: true });
+  }, [target, map]);
+  return null;
+}
+
 export function LeafletMap({
   center,
   prospectosExistentes,
   candidatos,
   clickedPoint,
+  flyTo,
   addingTel,
   onMapClick,
   onCenterChange,
@@ -80,6 +92,7 @@ export function LeafletMap({
   prospectosExistentes: CallCenterProspecto[];
   candidatos: CandidatoMapa[];
   clickedPoint: { lat: number; lng: number } | null;
+  flyTo: { lat: number; lng: number } | null;
   addingTel: string | null;
   onMapClick: (p: { lat: number; lng: number }) => void;
   onCenterChange: (c: { lat: number; lng: number }) => void;
@@ -100,6 +113,7 @@ export function LeafletMap({
       />
 
       <MapEvents onMapClick={onMapClick} onCenterChange={onCenterChange} />
+      <Recenter target={flyTo} />
 
       {/* Prospectos ya existentes (con coordenadas) */}
       {prospectosExistentes.map((p) =>
