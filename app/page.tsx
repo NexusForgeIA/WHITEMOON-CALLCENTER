@@ -7,6 +7,7 @@ import {
   ListChecks,
   Timer,
   Wallet,
+  UserPlus,
 } from "lucide-react";
 import { createServerClient } from "@/lib/supabase-server";
 import { PageHeader } from "@/components/page-header";
@@ -32,7 +33,11 @@ const CONTACTADAS: CallEstado[] = ["contestada", "completada"];
 
 export default async function DashboardPage() {
   const supabase = createServerClient();
-  const [callsRes, prospRes, credito] = await Promise.all([
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [callsRes, prospRes, prospHoyRes, credito] = await Promise.all([
     supabase
       .from("call_center_calls")
       .select(
@@ -43,6 +48,10 @@ export default async function DashboardPage() {
       .from("call_center_prospectos")
       .select("*", { count: "exact", head: true })
       .eq("estado", "pendiente"),
+    supabase
+      .from("call_center_prospectos")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", todayStart.toISOString()),
     getBlandBalance(),
   ]);
 
@@ -62,9 +71,7 @@ export default async function DashboardPage() {
 
   const rows = (callsRes.data ?? []) as CallRow[];
   const prospectosPendientes = prospRes.count ?? 0;
-
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const prospectosHoy = prospHoyRes.count ?? 0;
 
   // Inicio de la semana actual (lunes 00:00).
   const weekStart = new Date(todayStart);
@@ -162,6 +169,12 @@ export default async function DashboardPage() {
           value={prospectosPendientes}
           icon={ListChecks}
           accent="#ffa94d"
+        />
+        <KpiCard
+          label="Prospectos hoy"
+          value={prospectosHoy}
+          icon={UserPlus}
+          accent="#9d70ff"
         />
         <KpiCard
           label="Crédito Bland"

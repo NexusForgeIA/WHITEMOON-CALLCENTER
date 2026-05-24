@@ -42,6 +42,12 @@ export type ProspectoEstado =
   | "completado"
   | "descartado";
 
+/** Origen del prospecto (cómo entró al sistema). */
+export type ProspectoOrigen = "manual" | "sofia" | "web";
+
+/** Prioridad comercial: 1 alta · 2 media · 3 baja. */
+export type ProspectoPrioridad = 1 | 2 | 3;
+
 export interface CallCenterCall {
   id: string;
   created_at: string;
@@ -74,4 +80,11 @@ export interface CallCenterProspecto {
   intentos: number;
   ultima_llamada: string | null;
   notas: string | null;
+  // Mapa + Sofía prospectora (migración 20260524120000).
+  lat: number | null;
+  lng: number | null;
+  dolor: string | null;
+  prioridad: number | null;
+  origen: string | null;
+  analisis_web: unknown | null;
 }

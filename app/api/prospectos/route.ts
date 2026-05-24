@@ -12,7 +12,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const { nombre, empresa, telefono, sector, notas } = body ?? {};
+  const { nombre, empresa, telefono, sector, notas, lat, lng, dolor, prioridad, origen } =
+    body ?? {};
 
   if (typeof telefono !== "string" || !telefono.trim()) {
     return NextResponse.json(
@@ -40,6 +41,12 @@ export async function POST(req: Request) {
         estado: "pendiente",
         intentos: 0,
         notas: limpio(notas),
+        // Campos del mapa / Sofía (opcionales).
+        lat: typeof lat === "number" ? lat : null,
+        lng: typeof lng === "number" ? lng : null,
+        dolor: limpio(dolor),
+        prioridad: typeof prioridad === "number" ? prioridad : 2,
+        origen: typeof origen === "string" && origen.trim() ? origen.trim() : "manual",
       })
       .select()
       .single();

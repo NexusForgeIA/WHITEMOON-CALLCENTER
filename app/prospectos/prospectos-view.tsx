@@ -8,7 +8,12 @@ import { Badge } from "@/components/badge";
 import { AgenteFilter, type AgenteFiltro } from "@/components/agente-filter";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { AGENTES, AGENTE_MAP } from "@/lib/agentes";
-import { PROSPECTO_ESTADO, PROSPECTO_ESTADO_ORDER } from "@/lib/labels";
+import {
+  PROSPECTO_ESTADO,
+  PROSPECTO_ESTADO_ORDER,
+  PROSPECTO_ORIGEN,
+  PROSPECTO_PRIORIDAD,
+} from "@/lib/labels";
 import { formatDateTime } from "@/lib/format";
 import type { Agente, CallCenterProspecto, ProspectoEstado } from "@/lib/types";
 
@@ -199,7 +204,10 @@ export function ProspectosView({
                 <th className="px-4 py-3 font-medium">Contacto</th>
                 <th className="px-4 py-3 font-medium">Teléfono</th>
                 <th className="px-4 py-3 font-medium">Agente</th>
+                <th className="px-4 py-3 font-medium">Origen</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
+                <th className="px-4 py-3 font-medium">Prioridad</th>
+                <th className="px-4 py-3 font-medium">Dolor</th>
                 <th className="px-4 py-3 font-medium">Intentos</th>
                 <th className="px-4 py-3 font-medium">Última llamada</th>
                 <th className="px-4 py-3 font-medium text-right">Acción</th>
@@ -208,7 +216,7 @@ export function ProspectosView({
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-muted">
+                  <td colSpan={10} className="px-4 py-10 text-center text-muted">
                     No hay prospectos que coincidan con los filtros.
                   </td>
                 </tr>
@@ -216,6 +224,12 @@ export function ProspectosView({
               {filtered.map((p) => {
                 const ag = AGENTE_MAP[p.agente];
                 const est = PROSPECTO_ESTADO[p.estado];
+                const ori =
+                  PROSPECTO_ORIGEN[p.origen ?? "manual"] ??
+                  PROSPECTO_ORIGEN.manual;
+                const pri =
+                  PROSPECTO_PRIORIDAD[p.prioridad ?? 2] ??
+                  PROSPECTO_PRIORIDAD[2];
                 const enCurso = p.estado === "llamando";
                 const llamando = callingId === p.id;
                 return (
@@ -239,7 +253,18 @@ export function ProspectosView({
                       />
                     </td>
                     <td className="px-4 py-3">
+                      <Badge label={`${ori.emoji} ${ori.label}`} color={ori.color} />
+                    </td>
+                    <td className="px-4 py-3">
                       {est && <Badge label={est.label} color={est.color} />}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span style={{ color: pri.color }} className="font-medium">
+                        {pri.emoji} {pri.label}
+                      </span>
+                    </td>
+                    <td className="max-w-[220px] px-4 py-3 text-xs text-muted">
+                      <span className="line-clamp-2">{p.dolor ?? "—"}</span>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-muted">
                       {p.intentos}
