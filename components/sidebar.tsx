@@ -7,6 +7,7 @@ import {
   Users,
   PhoneCall,
   ListChecks,
+  Map as MapIcon,
   LogOut,
 } from "lucide-react";
 import { AGENTES } from "@/lib/agentes";
@@ -15,6 +16,7 @@ const NAV = [
   { href: "/", label: "Dashboard", Icon: LayoutDashboard },
   { href: "/agentes", label: "Agentes", Icon: Users },
   { href: "/llamadas", label: "Llamadas", Icon: PhoneCall },
+  { href: "/mapa", label: "Mapa", Icon: MapIcon },
   { href: "/prospectos", label: "Prospectos", Icon: ListChecks },
 ];
 
