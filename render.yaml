@@ -17,3 +17,7 @@ services:
       # bland-outbound). Sin ella el lanzamiento de llamadas devuelve 500.
       - key: BLAND_WEBHOOK_URL
         sync: false
+      # Requerida por el KPI de crédito del dashboard (GET /v1/me). Sin ella
+      # la tarjeta muestra "—" y no aparece el banner de saldo bajo.
+      - key: BLAND_API_KEY
+        sync: false
