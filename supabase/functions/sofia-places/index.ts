@@ -126,7 +126,12 @@ Deno.serve(async (req: Request) => {
     }
     const radio = typeof radio_km === "number" && radio_km > 0 ? radio_km : 5;
 
-    // -- PASO 1: Google Places Text Search -----------------------------------
+    // -- PASO 1: Google Places Text Search (restringido a España) ------------
+    // locationRestriction en searchText SOLO admite rectangle (no circle), así
+    // que convertimos el radio en un bounding box alrededor del punto. Junto a
+    // regionCode "ES" y "España" en el query, garantiza resultados en España.
+    const dLat = radio / 111.32; // km → grados de latitud
+    const dLng = radio / (111.32 * Math.cos((lat * Math.PI) / 180));
     const placesRes = await fetch(
       "https://places.googleapis.com/v1/places:searchText",
       {
@@ -138,13 +143,14 @@ Deno.serve(async (req: Request) => {
             "places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.location",
         },
         body: JSON.stringify({
-          textQuery: `${KEYWORDS[sector]} cerca de ${lat},${lng}`,
-          locationBias: {
-            circle: {
-              center: { latitude: lat, longitude: lng },
-              radius: radio * 1000,
+          textQuery: `${KEYWORDS[sector]} España`,
+          locationRestriction: {
+            rectangle: {
+              low: { latitude: lat - dLat, longitude: lng - dLng },
+              high: { latitude: lat + dLat, longitude: lng + dLng },
             },
           },
+          regionCode: "ES",
           maxResultCount: 20,
           languageCode: "es",
         }),
