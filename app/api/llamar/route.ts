@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 
-// Proxy server-side hacia la Edge Function bland-outbound.
-// Mantiene BLAND_WEBHOOK_URL fuera del cliente y evita CORS.
+// Proxy server-side hacia la Edge Function retell-outbound.
+// La URL se construye desde NEXT_PUBLIC_SUPABASE_URL (ya configurada); evita
+// CORS y mantiene la service_role fuera del cliente.
 export async function POST(req: Request) {
-  const url = process.env.BLAND_WEBHOOK_URL;
-  if (!url) {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!base) {
     return NextResponse.json(
-      { error: "BLAND_WEBHOOK_URL no configurada en el servidor" },
+      { error: "NEXT_PUBLIC_SUPABASE_URL no configurada en el servidor" },
       { status: 500 },
     );
   }
+  const url = `${base}/functions/v1/retell-outbound`;
 
   let body: Record<string, unknown>;
   try {
@@ -43,7 +45,7 @@ export async function POST(req: Request) {
     return NextResponse.json(data, { status: res.status });
   } catch (err) {
     return NextResponse.json(
-      { error: `No se pudo contactar con Bland.ai: ${String(err)}` },
+      { error: `No se pudo contactar con Retell: ${String(err)}` },
       { status: 502 },
     );
   }
