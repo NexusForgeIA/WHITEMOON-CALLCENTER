@@ -21,3 +21,10 @@ services:
       # la tarjeta muestra "—" y no aparece el banner de saldo bajo.
       - key: BLAND_API_KEY
         sync: false
+      # Retell AI: las consume la Edge Function retell-outbound. Deben estar
+      # ADEMÁS en Supabase Edge Function Secrets (la función las lee con
+      # Deno.env.get); aquí quedan declaradas para el entorno del proyecto.
+      - key: RETELL_API_KEY
+        sync: false
+      - key: RETELL_PHONE_NUMBER
+        sync: false

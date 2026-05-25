@@ -57,6 +57,7 @@ export interface CallCenterCall {
   empresa: string | null;
   sector: string | null;
   bland_call_id: string | null;
+  retell_call_id: string | null;
   estado: CallEstado;
   duracion_segundos: number | null;
   pipeline_estado: PipelineEstado;
