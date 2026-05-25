@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase-server";
 import { AGENTE_MAP } from "@/lib/agentes";
 
 // Alta de prospecto. La escritura va server-side con service_role porque las
-// RLS solo permiten SELECT a anon/authenticated.
+// RLS solo permiten acceso a service_role.
 export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try {
