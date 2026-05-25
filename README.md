@@ -59,9 +59,7 @@ render deploy --service whitemoon-callcenter
 
 Se configuran en *Environment* del servicio (todas `sync: false`, ninguna se commitea): `PANEL_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL` (o `SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY` y `BLAND_WEBHOOK_URL`.
 
-> `NEXT_PUBLIC_SUPABASE_ANON_KEY` aparece en el blueprint por compatibilidad, pero el código actual **no la usa** (las lecturas son server-side con `service_role`).
-
 ## Seguridad
 
-- RLS de `call_center_calls` y `call_center_prospectos`: `anon`/`authenticated` solo SELECT; escrituras solo `service_role` (Edge Functions). Ver `supabase/migrations/`.
+- RLS de `call_center_calls` y `call_center_prospectos`: acceso solo `service_role` (Edge Functions y rutas `/api` server-side). Ver `supabase/migrations/`.
 - El lanzamiento de llamadas pasa por `/api/llamar` (servidor) → Edge Function `bland-outbound`, manteniendo el webhook fuera del cliente.
